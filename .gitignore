@@ -3,3 +3,6 @@ fixtures/capture-*.jsonl
 
 # Downloaded by the app at its first start
 /tosu/
+
+# Installers made by electron-builder
+/build/

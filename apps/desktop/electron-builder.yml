@@ -2,6 +2,8 @@ appId: com.osutracker.app
 productName: Osu!tracker
 directories:
   buildResources: build
+  # The installers go to the build folder at the root of the project, kept out of Git.
+  output: ../../build
 files:
   - '!**/.vscode/*'
   - '!src/*'
