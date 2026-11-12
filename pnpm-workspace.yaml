@@ -1,0 +1,16 @@
+packages:
+  - apps/*
+  - packages/*
+nodeLinker: hoisted
+# The calculator ships one binary per OS, and the Windows build is made from Linux too.
+supportedArchitectures:
+  os:
+    - current
+    - win32
+    - linux
+  cpu:
+    - x64
+allowBuilds:
+  better-sqlite3: true
+  electron-winstaller: false
+  esbuild: true

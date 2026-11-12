@@ -1,0 +1,5 @@
+*node_modules/
+fixtures/capture-*.jsonl
+
+# Downloaded by the app at its first start
+/tosu/
