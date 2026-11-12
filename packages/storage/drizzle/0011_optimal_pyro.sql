@@ -1,0 +1,1 @@
+ALTER TABLE `top_scores` ADD `modded_stars` real;

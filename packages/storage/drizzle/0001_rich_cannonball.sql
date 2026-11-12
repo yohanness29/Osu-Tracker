@@ -1,0 +1,1 @@
+ALTER TABLE `plays` ADD `max_pp` real;

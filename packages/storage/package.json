@@ -1,0 +1,15 @@
+{
+  "name": "@osu-tracker/storage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@osu-tracker/shared": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@osu-tracker/tracker": "workspace:*"
+  }
+}
