@@ -1,0 +1,10 @@
+{
+  "name": "@osu-tracker/pp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@tosuapp/lazer-calculator-prebuilt": "0.6.1-20260729-main.0"
+  }
+}
