@@ -4,6 +4,7 @@
   "description": "Osu!tracker (O!tr): track and analyze osu! sessions",
   "main": "./out/main/index.js",
   "author": "yohanness",
+  "homepage": "https://github.com/yohanness29/Osu-Tracker",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

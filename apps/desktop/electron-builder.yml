@@ -35,12 +35,23 @@ dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
   executableName: osu-tracker
+  # AppImage for any distribution, rpm (Fedora, Nobara) and deb (Ubuntu, Mint, Debian)
+  # installed with a double click.
   target:
     - AppImage
-  maintainer: electronjs.org
-  category: Utility
+    - rpm
+    - deb
+  maintainer: yohanness
+  synopsis: Suivi et analyse des sessions osu!
+  category: Game
 appImage:
   artifactName: osu-tracker-${version}.${ext}
+rpm:
+  packageName: osu-tracker
+  artifactName: osu-tracker-${version}.${arch}.${ext}
+deb:
+  packageName: osu-tracker
+  artifactName: osu-tracker_${version}_${arch}.${ext}
 npmRebuild: false
 # The app looks for its updates in the releases of the GitHub repository.
 publish:
