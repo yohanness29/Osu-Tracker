@@ -9,7 +9,7 @@ import { useTracking } from '../../store'
 import { SessionAnalysis } from './SessionAnalysis'
 import { computeStats, groupAttempts, type ModeShare, type Share } from './sessions'
 import { useSessionPlays } from './useSessions'
-import { notify, onActionMenu } from '../../shared/actionMenu'
+import { notify, onActionMenu } from '../../shared/actionMenuStore'
 import { errorMessage } from '../../shared/errors'
 import { sessionActions } from './sessionActions'
 

@@ -1,4 +1,4 @@
-import { notify, type MenuAction } from '../../shared/actionMenu'
+import { notify, type MenuAction } from '../../shared/actionMenuStore'
 
 /** What a right click on a session offers. */
 export function sessionActions(sessionId: string): MenuAction[] {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { FloatingMenu } from './FloatingMenu'
-import { closeActionMenu, notify, useActionMenu } from './actionMenu'
+import { closeActionMenu, notify, useActionMenu } from './actionMenuStore'
 import { errorMessage } from './errors'
 
 const NOTICE_MS = 5000

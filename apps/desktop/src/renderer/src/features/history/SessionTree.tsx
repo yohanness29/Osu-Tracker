@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { SessionSummary } from '@osu-tracker/storage'
 import { buildTree, dayKey } from './sessions'
-import { onActionMenu } from '../../shared/actionMenu'
+import { onActionMenu } from '../../shared/actionMenuStore'
 import { sessionActions } from './sessionActions'
 
 type TreeProps = {
