@@ -1,9 +1,9 @@
 // Keys are the mode names sent by tosu.
 export const MODES = [
-  { key: 'osu', label: 'osu!', icon: '●' },
-  { key: 'taiko', label: 'Taiko', icon: '◐' },
-  { key: 'fruits', label: 'Catch', icon: '◆' },
-  { key: 'mania', label: 'Mania', icon: '▮' }
+  { key: 'osu', label: 'osu!' },
+  { key: 'taiko', label: 'Taiko' },
+  { key: 'fruits', label: 'Catch' },
+  { key: 'mania', label: 'Mania' }
 ]
 
 export function modeLabel(mode: string): string {

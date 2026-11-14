@@ -8,11 +8,12 @@
   ],
   "compilerOptions": {
     "composite": true,
+    // Its declarations, never used, would land on the preload's own index.d.ts.
+    "outDir": "./node_modules/.cache/tsconfig.web",
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@renderer/*": [
-        "src/renderer/src/*"
+        "./src/renderer/src/*"
       ]
     }
   }

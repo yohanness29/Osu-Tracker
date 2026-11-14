@@ -70,6 +70,13 @@ describe("TrackerStore", () => {
     store.apply({ ...finished, play: again });
     expect(count("plays")).toBe(5);
 
+    // Even when the copy is not partial, such as a replay of the score.
+    store.apply({
+      ...finished,
+      play: { ...again, id: "replay", partial: false },
+    });
+    expect(count("plays")).toBe(5);
+
     // A real new try that reaches another score is kept.
     store.apply({
       ...finished,
@@ -531,6 +538,115 @@ describe("TrackerStore", () => {
         playCount: 20,
       },
     ]);
+  });
+
+  describe("tournaments", () => {
+    const poolMap = (slot: string, beatmapId: number) => ({
+      slot,
+      mods: slot.startsWith("HD") ? "HD" : "",
+      freeMod: slot.startsWith("TB"),
+      beatmapId,
+      beatmapsetId: 1,
+      checksum: `c${beatmapId}`,
+      title: `Map ${beatmapId}`,
+      artist: "A",
+      version: "Futsuu",
+      mapper: "M",
+      stars: 2.4,
+      ar: 0,
+      od: 4,
+      cs: 0,
+      hp: 7,
+      bpm: 195,
+      lengthSeconds: 210,
+      style: "Stamina",
+      tags: ["Marathon"],
+    });
+    const score = (gameId: number, userId: number, accuracy: number) => ({
+      gameId,
+      beatmapId: 100 + gameId,
+      title: "Map",
+      version: "Futsuu",
+      playedAt: gameId,
+      userId,
+      username: `player ${userId}`,
+      mods: "NF",
+      score: 900000,
+      accuracy,
+      maxCombo: 400,
+      n300: 390,
+      n100: 10,
+      misses: 0,
+      passed: true,
+    });
+
+    it("keeps pools in order, with their maps in the order given", () => {
+      const id = store.createTournament("BTT10", "taiko", 1);
+      store.createPool(
+        id,
+        "Qualifiers",
+        [poolMap("NM1", 1), poolMap("HD1", 2)],
+        10,
+      );
+      store.createPool(id, "RO32", [poolMap("TB", 3)], 20);
+      store.updateTournament(id, { bans: 1, bestOf: 9, name: "  " });
+
+      expect(store.tournaments()[0]).toMatchObject({
+        name: "BTT10",
+        bans: 1,
+        bestOf: 9,
+      });
+      const pools = store.tournamentPools(id);
+      expect(pools.map(({ name }) => name)).toEqual(["Qualifiers", "RO32"]);
+      expect(pools[0]!.maps.map(({ slot, tags }) => [slot, tags])).toEqual([
+        ["NM1", ["Marathon"]],
+        ["HD1", ["Marathon"]],
+      ]);
+      expect(pools[1]!.maps[0]!.freeMod).toBe(true);
+    });
+
+    it("replaces the scores of a match imported again", () => {
+      const id = store.createTournament("BTT10", "taiko", 1);
+      const match = {
+        osuMatchId: 7,
+        name: "BTT10: (A) vs. (B)",
+        startedAt: 5,
+        scores: [score(2, 10, 99), score(2, 11, 98), score(1, 10, 97)],
+      };
+      store.saveMatch(id, match, 100);
+      store.saveMatch(id, { ...match, scores: [score(1, 10, 96)] }, 200);
+
+      const [saved] = store.tournamentMatches(id);
+      expect(store.tournamentMatches(id)).toHaveLength(1);
+      expect(saved).toMatchObject({ osuMatchId: 7, importedAt: 200 });
+      expect(saved!.scores.map(({ accuracy }) => accuracy)).toEqual([96]);
+    });
+
+    it("removes the pools and matches with the tournament", () => {
+      const id = store.createTournament("BTT10", "taiko", 1);
+      const poolId = store.createPool(id, "RO32", [poolMap("NM1", 1)], 10);
+      store.saveMatch(
+        id,
+        { osuMatchId: 7, name: "x", startedAt: 5, scores: [score(1, 10, 99)] },
+        1,
+      );
+
+      store.deletePool(poolId);
+      expect(store.tournamentPools(id)).toEqual([]);
+      store.deleteTournament(id);
+      expect(store.tournaments()).toEqual([]);
+      expect(store.tournamentMatches(id)).toEqual([]);
+    });
+
+    it("finds the plays made on the maps of a pool", () => {
+      fixtureEvents().forEach((event) => store.apply(event));
+      const [play] = store.recentPlays(1);
+      expect(
+        store.playsOnMaps([play!.beatmapId], play!.mode).length,
+      ).toBeGreaterThan(0);
+      expect(store.playsOnMaps([play!.beatmapId], "mania")).toEqual([]);
+      expect(store.playsOnMaps([], "osu")).toEqual([]);
+    });
   });
 
   describe("playlists", () => {

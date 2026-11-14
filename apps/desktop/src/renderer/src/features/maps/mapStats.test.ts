@@ -31,6 +31,7 @@ function play(overrides: Partial<RecentPlay>): RecentPlay {
     n100: 0,
     n50: 0,
     misses: 0,
+    maxCombo: 400,
     sliderBreaks: 0,
     unstableRate: 120,
     hitError: null,

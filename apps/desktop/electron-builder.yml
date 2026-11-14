@@ -42,6 +42,8 @@ linux:
 appImage:
   artifactName: osu-tracker-${version}.${ext}
 npmRebuild: false
+# The app looks for its updates in the releases of the GitHub repository.
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: yohanness29
+  repo: Osu-Tracker

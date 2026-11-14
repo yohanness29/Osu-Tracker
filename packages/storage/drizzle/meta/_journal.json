@@ -120,6 +120,27 @@
       "when": 1794508630951,
       "tag": "0016_flat_silk_fever",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1794664838519,
+      "tag": "0017_remove-repeated-plays",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794664939017,
+      "tag": "0018_round_silver_samurai",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1794675328378,
+      "tag": "0019_tournament-format",
+      "breakpoints": true
     }
   ]
 }

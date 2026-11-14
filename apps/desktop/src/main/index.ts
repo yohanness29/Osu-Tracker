@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import type { Credentials } from '@osu-tracker/osu-api'
 import type { SearchFilters } from '@osu-tracker/recommender'
-import type { NewGoal, PlaylistMapInput } from '@osu-tracker/storage'
+import type { NewGoal, PlaylistMapInput, TournamentUpdate } from '@osu-tracker/storage'
 import {
   getAccountStatus,
   getTopScores,
@@ -13,6 +13,24 @@ import {
   syncAccount
 } from './account'
 import { setupAppData } from './app-data'
+import {
+  checkForUpdates,
+  downloadUpdate,
+  getUpdateState,
+  installUpdate,
+  setupUpdates
+} from './updates'
+import {
+  addPool,
+  createTournament,
+  deleteMatch,
+  deletePool,
+  deleteTournament,
+  getTournament,
+  getTournaments,
+  importMatch,
+  updateTournament
+} from './tournaments'
 import {
   getFarmingStatus,
   getPlayerStars,
@@ -98,6 +116,18 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('app:copy-text', (_, text: string) => clipboard.writeText(text))
+  ipcMain.handle('app:get-info', () => ({
+    version: app.getVersion(),
+    dataFolder: app.getPath('userData')
+  }))
+  ipcMain.handle('updates:get', () => getUpdateState())
+  ipcMain.handle('updates:check', () => checkForUpdates())
+  ipcMain.handle('updates:download', () => downloadUpdate())
+  ipcMain.handle('updates:install', () => installUpdate())
+  ipcMain.handle('app:open-data-folder', async () => {
+    const failure = await shell.openPath(app.getPath('userData'))
+    if (failure) throw new Error(failure)
+  })
   ipcMain.handle('tracking:get-status', () => getTrackingStatus())
   ipcMain.handle('farming:get-status', () => getFarmingStatus())
   ipcMain.handle('farming:get-player-stars', (_, mode: string) => getPlayerStars(mode))
@@ -126,6 +156,23 @@ app.whenReady().then(() => {
   ipcMain.handle('account:get-top-scores', (_, mode: string) => getTopScores(mode))
   ipcMain.handle('tracking:get-sessions', () => getSessions())
   ipcMain.handle('tracking:export-session', (_, sessionId: string) => exportSession(sessionId))
+  ipcMain.handle('tournaments:get-all', () => getTournaments())
+  ipcMain.handle('tournaments:get', (_, tournamentId: string) => getTournament(tournamentId))
+  ipcMain.handle('tournaments:create', (_, name: string, mode: string) =>
+    createTournament(name, mode)
+  )
+  ipcMain.handle('tournaments:update', (_, tournamentId: string, changes: TournamentUpdate) =>
+    updateTournament(tournamentId, changes)
+  )
+  ipcMain.handle('tournaments:delete', (_, tournamentId: string) => deleteTournament(tournamentId))
+  ipcMain.handle('tournaments:add-pool', (_, tournamentId: string, name: string, text: string) =>
+    addPool(tournamentId, name, text)
+  )
+  ipcMain.handle('tournaments:delete-pool', (_, poolId: string) => deletePool(poolId))
+  ipcMain.handle('tournaments:import-match', (_, tournamentId: string, link: string) =>
+    importMatch(tournamentId, link)
+  )
+  ipcMain.handle('tournaments:delete-match', (_, matchId: string) => deleteMatch(matchId))
   ipcMain.handle('playlists:get', () => getPlaylists())
   ipcMain.handle('playlists:create', (_, name: string) => createPlaylist(name))
   ipcMain.handle('playlists:rename', (_, playlistId: string, name: string) =>
@@ -165,6 +212,7 @@ app.whenReady().then(() => {
   }
 
   createWindow()
+  setupUpdates()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

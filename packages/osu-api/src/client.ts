@@ -3,6 +3,9 @@ import {
   attributesSchema,
   beatmapSchema,
   catalogBeatmapSchema,
+  matchSchema,
+  toOsuMatch,
+  type OsuMatch,
   meSchema,
   scoresSchema,
   searchModeNumber,
@@ -17,6 +20,9 @@ import {
 
 const SITE_URL = "https://osu.ppy.sh";
 const API_URL = `${SITE_URL}/api/v2`;
+const MATCH_PAGE_SIZE = 101;
+// A tournament match holds a few dozen events: this only stops a broken answer.
+const MATCH_PAGES_MAX = 20;
 const SCOPES = "public identify";
 const TOP_SCORES_LIMIT = 100;
 // The API asks for about one request per second.
@@ -162,6 +168,24 @@ export class OsuClient {
         playCount: map.playcount ?? 0,
       },
     };
+  }
+
+  /** Every game of a multiplayer match, read page by page. */
+  async getMatch(matchId: number): Promise<OsuMatch> {
+    const pages: z.infer<typeof matchSchema>[] = [];
+    let after = 0;
+    for (let page = 0; page < MATCH_PAGES_MAX; page += 1) {
+      const result = matchSchema.parse(
+        await this.get(
+          `/matches/${matchId}?after=${after}&limit=${MATCH_PAGE_SIZE}`,
+        ),
+      );
+      pages.push(result);
+      const last = result.events.at(-1)?.id;
+      if (last === undefined || last >= (result.latest_event_id ?? last)) break;
+      after = last;
+    }
+    return toOsuMatch(pages);
   }
 
   /** Ranked maps of a difficulty range, most played first. */

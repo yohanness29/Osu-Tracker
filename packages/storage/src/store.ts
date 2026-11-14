@@ -38,9 +38,14 @@ const {
   goals,
   noModMaxPp,
   playSamples,
+  matchScores,
   playlistMaps,
   playlists,
   plays,
+  poolMaps,
+  tournamentMatches,
+  tournamentPools,
+  tournaments,
   sessions,
   topScores,
 } = schema;
@@ -129,6 +134,7 @@ export type RecentPlay = {
   n300: number;
   n100: number;
   n50: number;
+  maxCombo: number;
   misses: number;
   sliderBreaks: number;
   unstableRate: number;
@@ -184,6 +190,57 @@ export type SessionExport = {
   goals: Goal[];
   /** Oldest first, each with how its pp, accuracy and combo went along the map. */
   plays: (RecentPlay & { samples: PlaySample[] })[];
+};
+
+export type Tournament = typeof tournaments.$inferSelect;
+
+export type TournamentUpdate = Partial<
+  Pick<
+    Tournament,
+    | "name"
+    | "bestOf"
+    | "bans"
+    | "qualifiedCount"
+    | "loserBracket"
+    | "nextMatchAt"
+    | "nextPoolId"
+    | "nextOpponentId"
+  >
+>;
+
+export type PoolMapInput = Omit<
+  typeof poolMaps.$inferInsert,
+  "poolId" | "position" | "tags"
+> & { tags: string[] };
+
+export type PoolMap = Omit<typeof poolMaps.$inferSelect, "tags"> & {
+  tags: string[];
+};
+
+export type TournamentPool = {
+  id: string;
+  name: string;
+  createdAt: number;
+  maps: PoolMap[];
+};
+
+export type MatchScoreRow = Omit<typeof matchScores.$inferSelect, "matchId">;
+
+export type TournamentMatch = {
+  id: string;
+  osuMatchId: number;
+  name: string;
+  startedAt: number;
+  importedAt: number;
+  /** In the order they were played, each player apart. */
+  scores: MatchScoreRow[];
+};
+
+export type MatchInput = {
+  osuMatchId: number;
+  name: string;
+  startedAt: number;
+  scores: Omit<MatchScoreRow, "position">[];
 };
 
 export type Playlist = {
@@ -652,6 +709,207 @@ export class TrackerStore {
 
   /** An empty name gives the session its default name back. */
   /** Most recent first. */
+  tournaments(): Tournament[] {
+    return this.db
+      .select()
+      .from(tournaments)
+      .orderBy(desc(tournaments.createdAt))
+      .all();
+  }
+
+  createTournament(name: string, mode: string, createdAt: number): string {
+    const id = randomUUID();
+    this.db
+      .insert(tournaments)
+      .values({
+        id,
+        name: name.trim() || "Nouveau tournoi",
+        mode,
+        // Most tournaments keep the best 32 after the qualifiers.
+        qualifiedCount: 32,
+        createdAt,
+      })
+      .run();
+    return id;
+  }
+
+  updateTournament(tournamentId: string, changes: TournamentUpdate): void {
+    const values = { ...changes };
+    if (values.name !== undefined && !values.name.trim()) delete values.name;
+    if (Object.keys(values).length === 0) return;
+    this.db
+      .update(tournaments)
+      .set(values)
+      .where(eq(tournaments.id, tournamentId))
+      .run();
+  }
+
+  /** Its pools and matches go with it. */
+  deleteTournament(tournamentId: string): void {
+    this.db.delete(tournaments).where(eq(tournaments.id, tournamentId)).run();
+  }
+
+  /** The maps keep the order given. */
+  createPool(
+    tournamentId: string,
+    name: string,
+    maps: PoolMapInput[],
+    createdAt: number,
+  ): string {
+    const id = randomUUID();
+    this.db.transaction((tx) => {
+      tx.insert(tournamentPools)
+        .values({ id, tournamentId, name: name.trim() || "Pool", createdAt })
+        .run();
+      if (maps.length > 0) {
+        tx.insert(poolMaps)
+          .values(
+            maps.map((map, position) => ({
+              ...map,
+              poolId: id,
+              position,
+              tags: JSON.stringify(map.tags),
+            })),
+          )
+          .run();
+      }
+    });
+    return id;
+  }
+
+  deletePool(poolId: string): void {
+    this.db.delete(tournamentPools).where(eq(tournamentPools.id, poolId)).run();
+  }
+
+  /** Oldest first, as the rounds follow each other. */
+  tournamentPools(tournamentId: string): TournamentPool[] {
+    const pools = this.db
+      .select()
+      .from(tournamentPools)
+      .where(eq(tournamentPools.tournamentId, tournamentId))
+      .orderBy(asc(tournamentPools.createdAt))
+      .all();
+    if (pools.length === 0) return [];
+
+    const maps = Map.groupBy(
+      this.db
+        .select()
+        .from(poolMaps)
+        .where(
+          inArray(
+            poolMaps.poolId,
+            pools.map(({ id }) => id),
+          ),
+        )
+        .orderBy(asc(poolMaps.position))
+        .all()
+        .map((map) => ({ ...map, tags: parseTags(map.tags) })),
+      ({ poolId }) => poolId,
+    );
+    return pools.map(({ id, name, createdAt }) => ({
+      id,
+      name,
+      createdAt,
+      maps: maps.get(id) ?? [],
+    }));
+  }
+
+  /** Importing a match again replaces its scores. */
+  saveMatch(
+    tournamentId: string,
+    match: MatchInput,
+    importedAt: number,
+  ): string {
+    const existing = this.db
+      .select({ id: tournamentMatches.id })
+      .from(tournamentMatches)
+      .where(
+        and(
+          eq(tournamentMatches.tournamentId, tournamentId),
+          eq(tournamentMatches.osuMatchId, match.osuMatchId),
+        ),
+      )
+      .get();
+    const id = existing?.id ?? randomUUID();
+
+    this.db.transaction((tx) => {
+      if (existing) {
+        tx.delete(tournamentMatches).where(eq(tournamentMatches.id, id)).run();
+      }
+      tx.insert(tournamentMatches)
+        .values({
+          id,
+          tournamentId,
+          osuMatchId: match.osuMatchId,
+          name: match.name,
+          startedAt: match.startedAt,
+          importedAt,
+        })
+        .run();
+      const games = [...new Set(match.scores.map(({ gameId }) => gameId))];
+      if (match.scores.length > 0) {
+        tx.insert(matchScores)
+          .values(
+            match.scores.map((score) => ({
+              ...score,
+              matchId: id,
+              position: games.indexOf(score.gameId),
+            })),
+          )
+          .run();
+      }
+    });
+    return id;
+  }
+
+  deleteMatch(matchId: string): void {
+    this.db
+      .delete(tournamentMatches)
+      .where(eq(tournamentMatches.id, matchId))
+      .run();
+  }
+
+  /** Latest first. */
+  tournamentMatches(tournamentId: string): TournamentMatch[] {
+    const matches = this.db
+      .select()
+      .from(tournamentMatches)
+      .where(eq(tournamentMatches.tournamentId, tournamentId))
+      .orderBy(desc(tournamentMatches.startedAt))
+      .all();
+    if (matches.length === 0) return [];
+
+    const scores = Map.groupBy(
+      this.db
+        .select()
+        .from(matchScores)
+        .where(
+          inArray(
+            matchScores.matchId,
+            matches.map(({ id }) => id),
+          ),
+        )
+        .orderBy(asc(matchScores.position))
+        .all(),
+      ({ matchId }) => matchId,
+    );
+    return matches.map(({ tournamentId: _tournamentId, ...match }) => ({
+      ...match,
+      scores: (scores.get(match.id) ?? []).map(
+        ({ matchId: _matchId, ...score }) => score,
+      ),
+    }));
+  }
+
+  /** Every play of these maps in a mode, latest first: the training on a pool. */
+  playsOnMaps(beatmapIds: number[], mode: string): RecentPlay[] {
+    if (beatmapIds.length === 0) return [];
+    return this.queryPlays(
+      and(inArray(beatmaps.beatmapId, beatmapIds), eq(plays.mode, mode)),
+    );
+  }
+
+  /** Most recent first. */
   playlists(): Playlist[] {
     return this.db
       .select({
@@ -976,6 +1234,7 @@ export class TrackerStore {
         n300: plays.n300,
         n100: plays.n100,
         n50: plays.n50,
+        maxCombo: plays.maxCombo,
         misses: plays.misses,
         sliderBreaks: plays.sliderBreaks,
         unstableRate: plays.unstableRate,
@@ -1151,11 +1410,12 @@ export class TrackerStore {
   }
 
   /**
-   * A play observed again after the app restarted in the middle of it, or while the game was
-   * paused: same session, same map, same score and combo as a play already kept.
+   * A play seen a second time: after the app restarted in the middle of it, or when a score
+   * already shown comes back, such as its replay. Same session, map, score, combo, accuracy
+   * and misses as a play already kept: two real tries never share all of them.
    */
   private isRepeatedPlay(play: TrackedPlay): boolean {
-    if (!play.partial || play.score === 0) return false;
+    if (play.score === 0) return false;
     const repeated = this.db
       .select({ id: plays.id })
       .from(plays)
@@ -1165,6 +1425,8 @@ export class TrackerStore {
           eq(plays.beatmapChecksum, play.beatmap.checksum),
           eq(plays.score, play.score),
           eq(plays.maxCombo, play.maxCombo),
+          eq(plays.accuracy, play.accuracy),
+          eq(plays.misses, play.hits.misses),
         ),
       )
       .get();

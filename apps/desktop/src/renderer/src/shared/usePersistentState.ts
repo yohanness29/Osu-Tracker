@@ -33,3 +33,14 @@ export function usePersistentState<T>(key: string, initial: T): [T, (value: T) =
 
   return [value, setValue]
 }
+
+/** Forgets every value kept between launches: filters, sorts, folded menu. */
+export function clearSavedPreferences(): void {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(PREFIX)) localStorage.removeItem(key)
+    }
+  } catch {
+    // Without storage, nothing was kept.
+  }
+}

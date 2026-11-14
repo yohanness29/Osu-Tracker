@@ -6,6 +6,7 @@ import { join } from 'path'
 import { TosuClient } from '@osu-tracker/collector'
 import { recordNetGain, setupAccount, stopAccount } from './account'
 import { addPlayedMap, setupFarming, stopFarming } from './farming'
+import { setupTournaments } from './tournaments'
 import { startTosu, stopTosu, type TosuLaunch } from './tosu-process'
 import { analyzeMap } from '@osu-tracker/pp'
 import type { GameFrame, TrackerEvent } from '@osu-tracker/shared'
@@ -290,6 +291,7 @@ export function startTracking(): void {
   })
   setupAccount(store, () => inGame)
   setupFarming(store, () => inGame)
+  setupTournaments(store, () => inGame)
   status.backgroundUrl = tosu.backgroundUrl
   tosu.start()
   startTosu((launch) => {

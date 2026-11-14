@@ -212,3 +212,105 @@ export const playlistMaps = sqliteTable(
     primaryKey({ columns: [table.playlistId, table.beatmapChecksum] }),
   ],
 );
+
+export const tournaments = sqliteTable("tournaments", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  mode: text("mode").notNull(),
+  // Format of the matches, null until the player gives it.
+  bestOf: integer("best_of"),
+  bans: integer("bans"),
+  // How many players the qualifiers keep, and whether a loss sends to a loser bracket.
+  qualifiedCount: integer("qualified_count"),
+  loserBracket: integer("loser_bracket", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  // The next match, to prepare it.
+  nextMatchAt: integer("next_match_at"),
+  nextPoolId: text("next_pool_id"),
+  nextOpponentId: integer("next_opponent_id"),
+  createdAt: integer("created_at").notNull(),
+});
+
+// The maps of one round: qualifiers, round of 32…
+export const tournamentPools = sqliteTable("tournament_pools", {
+  id: text("id").primaryKey(),
+  tournamentId: text("tournament_id")
+    .notNull()
+    .references(() => tournaments.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+// Values read with the mods of the slot when the pool was added.
+export const poolMaps = sqliteTable(
+  "pool_maps",
+  {
+    poolId: text("pool_id")
+      .notNull()
+      .references(() => tournamentPools.id, { onDelete: "cascade" }),
+    slot: text("slot").notNull(),
+    position: integer("position").notNull(),
+    mods: text("mods").notNull(),
+    // Free mod and tiebreaker slots: any mods may be played.
+    freeMod: integer("free_mod", { mode: "boolean" }).notNull(),
+    beatmapId: integer("beatmap_id").notNull(),
+    beatmapsetId: integer("beatmapset_id").notNull(),
+    checksum: text("checksum").notNull(),
+    title: text("title").notNull(),
+    artist: text("artist").notNull(),
+    version: text("version").notNull(),
+    mapper: text("mapper").notNull(),
+    stars: real("stars").notNull(),
+    ar: real("ar").notNull(),
+    od: real("od").notNull(),
+    cs: real("cs").notNull(),
+    hp: real("hp").notNull(),
+    bpm: real("bpm").notNull(),
+    lengthSeconds: real("length_seconds").notNull(),
+    style: text("style"),
+    // JSON list.
+    tags: text("tags").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.poolId, table.slot] })],
+);
+
+// A multiplayer match read from the osu! website: qualifiers or a match against an opponent.
+export const tournamentMatches = sqliteTable("tournament_matches", {
+  id: text("id").primaryKey(),
+  tournamentId: text("tournament_id")
+    .notNull()
+    .references(() => tournaments.id, { onDelete: "cascade" }),
+  osuMatchId: integer("osu_match_id").notNull(),
+  name: text("name").notNull(),
+  startedAt: integer("started_at").notNull(),
+  importedAt: integer("imported_at").notNull(),
+});
+
+export const matchScores = sqliteTable(
+  "match_scores",
+  {
+    matchId: text("match_id")
+      .notNull()
+      .references(() => tournamentMatches.id, { onDelete: "cascade" }),
+    gameId: integer("game_id").notNull(),
+    position: integer("position").notNull(),
+    beatmapId: integer("beatmap_id").notNull(),
+    title: text("title").notNull(),
+    version: text("version").notNull(),
+    playedAt: integer("played_at").notNull(),
+    userId: integer("user_id").notNull(),
+    username: text("username").notNull(),
+    mods: text("mods").notNull(),
+    score: integer("score").notNull(),
+    accuracy: real("accuracy").notNull(),
+    maxCombo: integer("max_combo").notNull(),
+    n300: integer("n300").notNull(),
+    n100: integer("n100").notNull(),
+    misses: integer("misses").notNull(),
+    passed: integer("passed", { mode: "boolean" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.matchId, table.gameId, table.userId] }),
+  ],
+);

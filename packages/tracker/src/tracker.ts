@@ -167,7 +167,7 @@ export class Tracker {
     frame: GameFrame,
     events: TrackerEvent[],
   ): void {
-    if (frame.state === "resultScreen") {
+    if (isResultsState(frame.state)) {
       active.resultsSince ??= frame.receivedAt;
       active.lastFrame = frame;
 
@@ -189,7 +189,11 @@ export class Tracker {
     }
 
     if (frame.state !== "play") {
-      const result = endedInFail(active) ? "failed" : "quit";
+      const result = endedInFail(active)
+        ? "failed"
+        : reachedEnd(active)
+          ? "passed"
+          : "quit";
       this.finishPlay(active, result, frame.receivedAt, events);
       return;
     }
@@ -283,6 +287,25 @@ function isOwnPlayFrame(frame: GameFrame): boolean {
   // Replays and autoplay are played under another name.
   return (
     frame.profile.name === "" || frame.play.playerName === frame.profile.name
+  );
+}
+
+// The results of a multiplayer game have their own screen: any results screen counts.
+function isResultsState(state: string): boolean {
+  return /result/i.test(state);
+}
+
+const END_MARGIN_MS = 1000;
+
+/**
+ * The last note was reached without failing. Leaving the play there without a solo results
+ * screen happens in multiplayer, where the game goes back to the lobby.
+ */
+function reachedEnd({ lastFrame, mapTimeMs }: ActivePlay): boolean {
+  return (
+    !isFailed(lastFrame) &&
+    lastFrame.beatmap.lastObjectTime > 0 &&
+    mapTimeMs >= lastFrame.beatmap.lastObjectTime - END_MARGIN_MS
   );
 }
 

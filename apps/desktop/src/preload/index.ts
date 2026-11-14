@@ -9,6 +9,8 @@ import type {
   Playlist,
   PlaylistMap,
   PlaylistMapInput,
+  Tournament,
+  TournamentUpdate,
   RecentPlay,
   SessionSummary,
   TopScoreRow
@@ -18,11 +20,25 @@ import type { SearchFilters } from '@osu-tracker/recommender'
 import type { AccountStatus } from '../main/account'
 import type { FarmingStatus, FarmSuggestion, ImportedMap } from '../main/farming'
 import type { TrackingStatus } from '../main/tracking'
+import type { UpdateState } from '../main/updates'
+import type { ImportProgress, MatchImport, PoolImport, TournamentData } from '../main/tournaments'
 
 // Custom APIs for renderer
 const api = {
   getStatus: (): Promise<TrackingStatus> => ipcRenderer.invoke('tracking:get-status'),
   copyText: (text: string): Promise<void> => ipcRenderer.invoke('app:copy-text', text),
+  getAppInfo: (): Promise<{ version: string; dataFolder: string }> =>
+    ipcRenderer.invoke('app:get-info'),
+  openDataFolder: (): Promise<void> => ipcRenderer.invoke('app:open-data-folder'),
+  getUpdateState: (): Promise<UpdateState> => ipcRenderer.invoke('updates:get'),
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke('updates:check'),
+  downloadUpdate: (): Promise<void> => ipcRenderer.invoke('updates:download'),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('updates:install'),
+  onUpdateState: (listener: (state: UpdateState) => void): (() => void) => {
+    const handler = (_: unknown, state: UpdateState): void => listener(state)
+    ipcRenderer.on('updates:state', handler)
+    return () => ipcRenderer.removeListener('updates:state', handler)
+  },
   getFarmingStatus: (): Promise<FarmingStatus> => ipcRenderer.invoke('farming:get-status'),
   getPlayerStars: (mode: string): Promise<[number, number] | null> =>
     ipcRenderer.invoke('farming:get-player-stars', mode),
@@ -71,6 +87,28 @@ const api = {
   getSessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke('tracking:get-sessions'),
   exportSession: (sessionId: string): Promise<string | null> =>
     ipcRenderer.invoke('tracking:export-session', sessionId),
+  getTournaments: (): Promise<Tournament[]> => ipcRenderer.invoke('tournaments:get-all'),
+  getTournament: (tournamentId: string): Promise<TournamentData | null> =>
+    ipcRenderer.invoke('tournaments:get', tournamentId),
+  createTournament: (name: string, mode: string): Promise<string> =>
+    ipcRenderer.invoke('tournaments:create', name, mode),
+  updateTournament: (tournamentId: string, changes: TournamentUpdate): Promise<void> =>
+    ipcRenderer.invoke('tournaments:update', tournamentId, changes),
+  deleteTournament: (tournamentId: string): Promise<void> =>
+    ipcRenderer.invoke('tournaments:delete', tournamentId),
+  addPool: (tournamentId: string, name: string, text: string): Promise<PoolImport> =>
+    ipcRenderer.invoke('tournaments:add-pool', tournamentId, name, text),
+  deletePool: (poolId: string): Promise<void> =>
+    ipcRenderer.invoke('tournaments:delete-pool', poolId),
+  importMatch: (tournamentId: string, link: string): Promise<MatchImport> =>
+    ipcRenderer.invoke('tournaments:import-match', tournamentId, link),
+  deleteMatch: (matchId: string): Promise<void> =>
+    ipcRenderer.invoke('tournaments:delete-match', matchId),
+  onImportProgress: (listener: (progress: ImportProgress) => void): (() => void) => {
+    const handler = (_: unknown, progress: ImportProgress): void => listener(progress)
+    ipcRenderer.on('tournaments:progress', handler)
+    return () => ipcRenderer.removeListener('tournaments:progress', handler)
+  },
   getPlaylists: (): Promise<Playlist[]> => ipcRenderer.invoke('playlists:get'),
   createPlaylist: (name: string): Promise<string> => ipcRenderer.invoke('playlists:create', name),
   renamePlaylist: (playlistId: string, name: string): Promise<void> =>

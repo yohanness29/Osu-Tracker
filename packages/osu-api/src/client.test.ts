@@ -6,6 +6,7 @@ import {
   type OsuClientOptions,
   type Tokens,
 } from "./client";
+import { toOsuMatch } from "./schemas";
 
 const credentials = { clientId: "1", clientSecret: "secret" };
 const validTokens: Tokens = {
@@ -277,6 +278,101 @@ describe("OsuClient", () => {
     expect(onSessionExpired).not.toHaveBeenCalled();
   });
 
+  it("reads every game of a match, in both score formats", async () => {
+    const game = (id: number, score: object) => ({
+      id: id * 10,
+      game: {
+        id,
+        beatmap_id: 100 + id,
+        start_time: "2026-11-14T13:21:08Z",
+        mode: "taiko",
+        mods: ["NF"],
+        scoring_type: "scorev2",
+        beatmap: {
+          version: "Futsuu",
+          beatmapset: { title: `Map ${id}`, artist: "A" },
+        },
+        scores: [score],
+      },
+    });
+    const pages = [
+      {
+        match: {
+          id: 7,
+          name: "BTT10: (A) vs. (B)",
+          start_time: "2026-11-14T12:52:33Z",
+        },
+        events: [
+          { id: 1, detail: { type: "match-created" }, user_id: null },
+          game(1, {
+            user_id: 2,
+            accuracy: 0.987,
+            max_combo: 490,
+            score: 936538,
+            mods: ["HR"],
+            passed: true,
+            statistics: { count_300: 722, count_100: 3, count_miss: 8 },
+          }),
+        ],
+        users: [{ id: 2, username: "TomadouSora" }],
+        latest_event_id: 20,
+      },
+      {
+        match: {
+          id: 7,
+          name: "BTT10: (A) vs. (B)",
+          start_time: "2026-11-14T12:52:33Z",
+        },
+        events: [
+          game(2, {
+            user_id: 3,
+            accuracy: 0.9877,
+            max_combo: 381,
+            legacy_total_score: 924875,
+            total_score: 800000,
+            mods: [{ acronym: "HD" }],
+            statistics: { great: 718, ok: 12, miss: 3 },
+          }),
+        ],
+        users: [{ id: 3, username: "yohanness" }],
+        latest_event_id: 20,
+      },
+      {
+        match: { id: 7, name: "x", start_time: "2026-11-14T12:52:33Z" },
+        events: [],
+        users: [],
+      },
+    ];
+    let call = 0;
+    const fetch = vi.fn(async () =>
+      json(pages[call++]),
+    ) as unknown as typeof globalThis.fetch;
+
+    const match = await client(fetch).getMatch(7);
+
+    expect(match.name).toBe("BTT10: (A) vs. (B)");
+    expect(match.games.map((played) => played.title)).toEqual([
+      "Map 1",
+      "Map 2",
+    ]);
+    expect(match.games[0]!.scores[0]).toMatchObject({
+      username: "TomadouSora",
+      score: 936538,
+      n300: 722,
+      misses: 8,
+      mods: "NFHR",
+    });
+    expect(match.games[1]!.scores[0]).toMatchObject({
+      username: "yohanness",
+      score: 924875,
+      n100: 12,
+      misses: 3,
+      mods: "NFHD",
+    });
+    expect(match.games[1]!.scores[0]!.accuracy).toBeCloseTo(98.77);
+    expect(match.games.map(({ warmup }) => warmup)).toEqual([false, false]);
+  });
+
   it("reads one map for the catalog, with its status", async () => {
     const fetch = vi.fn(async () =>
       json({
@@ -351,5 +447,43 @@ describe("OsuClient", () => {
 
     expect(order).toHaveLength(3);
     expect(Date.now() - started).toBeGreaterThanOrEqual(35);
+  });
+});
+
+describe("toOsuMatch", () => {
+  const game = (id: number, scoringType: string) => ({
+    id,
+    game: {
+      id,
+      beatmap_id: id,
+      start_time: "2026-11-14T13:00:00Z",
+      mode: "taiko",
+      mods: [],
+      scoring_type: scoringType,
+      scores: [],
+    },
+  });
+
+  it("marks the warm-up maps played before the match with another scoring", () => {
+    const match = toOsuMatch([
+      {
+        match: { id: 1, name: "x", start_time: "2026-11-14T13:00:00Z" },
+        events: [
+          game(1, "score"),
+          game(2, "score"),
+          game(3, "scorev2"),
+          game(4, "scorev2"),
+          game(5, "scorev2"),
+        ],
+        users: [],
+      },
+    ]);
+    expect(match.games.map(({ warmup }) => warmup)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+    ]);
   });
 });

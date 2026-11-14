@@ -310,6 +310,60 @@ describe("rules", () => {
     expect(finishedPlays(events)).toEqual([]);
   });
 
+  it("counts a multiplayer game finished on its own results screen as passed", () => {
+    const tracker = new Tracker();
+    tracker.feed(makeFrame({ at: 0, score: 100, liveTime: 1000 }));
+    tracker.feed(makeFrame({ at: 100, score: 5000, liveTime: 89000 }));
+
+    const events = [
+      ...tracker.feed(
+        makeFrame({ at: 200, score: 5000, state: "multiplayerResultsScreen" }),
+      ),
+      ...tracker.feed(
+        makeFrame({ at: 4000, score: 5000, state: "multiplayerResultsScreen" }),
+      ),
+    ];
+    expect(finishedPlays(events).map((play) => play.result)).toEqual([
+      "passed",
+    ]);
+  });
+
+  it("counts a game played to its end then left for the lobby as passed", () => {
+    const tracker = new Tracker();
+    tracker.feed(
+      makeFrame({
+        at: 0,
+        score: 100,
+        liveTime: 1000,
+        mode: "taiko",
+        mods: "NF",
+      }),
+    );
+    tracker.feed(
+      makeFrame({
+        at: 100,
+        score: 5000,
+        liveTime: 89500,
+        mode: "taiko",
+        mods: "NF",
+      }),
+    );
+
+    const events = tracker.feed(
+      makeFrame({ at: 200, state: "multiplayerRoom" }),
+    );
+    expect(finishedPlays(events)[0]?.result).toBe("passed");
+  });
+
+  it("still counts a map left before its end as quit", () => {
+    const tracker = new Tracker();
+    tracker.feed(makeFrame({ at: 0, score: 100, liveTime: 1000 }));
+    tracker.feed(makeFrame({ at: 100, score: 5000, liveTime: 40000 }));
+
+    const events = tracker.feed(makeFrame({ at: 200, state: "selectPlay" }));
+    expect(finishedPlays(events)[0]?.result).toBe("quit");
+  });
+
   it("counts a real fail, even without any score", () => {
     const tracker = new Tracker();
     tracker.feed(makeFrame({ at: 0, liveTime: 1000, misses: 2 }));
