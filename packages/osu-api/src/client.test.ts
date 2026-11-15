@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  errorOf,
+  OsuBlockedError,
   OsuApiError,
   OsuClient,
   OsuSessionExpiredError,
@@ -485,5 +487,30 @@ describe("toOsuMatch", () => {
       false,
       false,
     ]);
+  });
+});
+
+describe("errorOf", () => {
+  it("tells osu!'s firewall page apart from the API's own refusals", () => {
+    const blocked = errorOf(
+      new Response(
+        "<!DOCTYPE html><title>Attention Required! | Cloudflare</title>",
+        {
+          status: 403,
+          headers: { "content-type": "text/html; charset=UTF-8" },
+        },
+      ),
+    );
+    expect(blocked).toBeInstanceOf(OsuBlockedError);
+    expect(blocked.message).toMatch(/bloque/);
+
+    const refused = errorOf(
+      new Response('{"error":"forbidden"}', {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    expect(refused).not.toBeInstanceOf(OsuBlockedError);
+    expect(refused.status).toBe(403);
   });
 });

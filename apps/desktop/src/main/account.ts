@@ -137,8 +137,23 @@ export function saveCredentials(credentials: Credentials): void {
   publish()
 }
 
+/** A login given up for a newer one: it has nothing to tell the player. */
+class LoginReplacedError extends Error {}
+
+// The login waiting for osu! to send the player back: a new click replaces it.
+let pendingLogin: { cancel: () => void } | null = null
+
 function waitForCode(state: string): Promise<string> {
+  pendingLogin?.cancel()
+
   return new Promise((resolve, reject) => {
+    const finish = (): void => {
+      clearTimeout(timeout)
+      server.close()
+      server.closeAllConnections()
+      if (pendingLogin === current) pendingLogin = null
+    }
+
     const server = createServer((request, response) => {
       const url = new URL(request.url ?? '/', REDIRECT_URI)
       if (url.pathname !== '/callback') {
@@ -147,24 +162,49 @@ function waitForCode(state: string): Promise<string> {
       }
 
       const code = url.searchParams.get('code')
-      const valid = code !== null && url.searchParams.get('state') === state
+      const denied = url.searchParams.get('error') === 'access_denied'
+      // A page from an earlier click, or reloaded: only the latest login counts.
+      const stale = code !== null && url.searchParams.get('state') !== state
+      const valid = code !== null && !stale
       response.writeHead(valid ? 200 : 400, { 'Content-Type': 'text/plain; charset=utf-8' })
       response.end(
-        valid ? 'Connexion réussie, tu peux revenir sur Osu!tracker.' : 'Connexion refusée.'
+        valid
+          ? 'Connexion réussie, tu peux revenir sur Osu!tracker.'
+          : stale
+            ? 'Cette page vient d’une ancienne tentative : clique de nouveau sur « Se connecter » dans Osu!tracker.'
+            : 'Connexion refusée.'
       )
+      if (stale) return
 
-      clearTimeout(timeout)
-      server.close()
+      finish()
       if (valid) resolve(code)
-      else reject(new Error('La connexion a été refusée.'))
+      else
+        reject(
+          new Error(
+            denied
+              ? 'Tu as refusé l’accès sur osu! : clique sur « Se connecter » pour réessayer.'
+              : 'La connexion a été refusée.'
+          )
+        )
     })
 
     const timeout = setTimeout(() => {
-      server.close()
+      finish()
       reject(new Error('La connexion a pris trop de temps.'))
     }, LOGIN_TIMEOUT_MS)
 
-    server.on('error', reject)
+    const current = {
+      cancel: () => {
+        finish()
+        reject(new LoginReplacedError())
+      }
+    }
+    pendingLogin = current
+
+    server.on('error', (error) => {
+      finish()
+      reject(error)
+    })
     server.listen(CALLBACK_PORT, '127.0.0.1')
   })
 }
@@ -185,7 +225,7 @@ export async function login(): Promise<void> {
     publish()
     await syncAccount(0)
   } catch (error) {
-    fail(error)
+    if (!(error instanceof LoginReplacedError)) fail(error)
   }
 }
 

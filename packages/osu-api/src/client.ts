@@ -55,6 +55,29 @@ export class OsuSessionExpiredError extends OsuApiError {
   }
 }
 
+/**
+ * osu!'s firewall (Cloudflare) answered instead of the API: it blocks the requests of this
+ * connection for a while, whatever the account.
+ */
+export class OsuBlockedError extends OsuApiError {
+  constructor() {
+    super(403);
+    this.message =
+      "osu! bloque pour l’instant les requêtes de ta connexion internet (pare-feu Cloudflare). " +
+      "Ça se lève en général tout seul : réessaie plus tard.";
+  }
+}
+
+/** The error of a failed answer: the firewall's page is told apart from the API's own 403. */
+export function errorOf(response: Response): OsuApiError {
+  const html = (response.headers.get("content-type") ?? "").includes(
+    "text/html",
+  );
+  return response.status === 403 && html
+    ? new OsuBlockedError()
+    : new OsuApiError(response.status);
+}
+
 export type OsuClientOptions = {
   credentials: Credentials;
   redirectUri: string;
@@ -218,7 +241,7 @@ export class OsuClient {
     const request = this.queue.then(async () => {
       await this.waitForTurn();
       const response = await this.fetch(`${SITE_URL}/osu/${beatmapId}`);
-      if (!response.ok) throw new OsuApiError(response.status);
+      if (!response.ok) throw errorOf(response);
       return Buffer.from(await response.arrayBuffer());
     });
     this.queue = request.catch(() => undefined);
@@ -239,7 +262,7 @@ export class OsuClient {
         ...grant,
       }),
     });
-    if (!response.ok) throw new OsuApiError(response.status);
+    if (!response.ok) throw errorOf(response);
 
     const token = tokenSchema.parse(await response.json());
     this.tokens = {
@@ -315,7 +338,7 @@ export class OsuClient {
       await this.refreshTokens();
       return this.send(path, body, true);
     }
-    if (!response.ok) throw new OsuApiError(response.status);
+    if (!response.ok) throw errorOf(response);
 
     return response.json();
   }
