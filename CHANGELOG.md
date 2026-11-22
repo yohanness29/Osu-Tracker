@@ -6,6 +6,8 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et les n
 
 ## [Non publié]
 
+## [1.1.0-beta.1] - 2026-11-22
+
 ### Ajouté
 - Paramètres → Données : la case « Recevoir les versions bêta », pour avoir les nouveautés avant leur sortie en version stable. Quand tu es sur une bêta, un badge « Bêta » l’indique à côté de la version.
 - Clic droit sur une map, partout dans l’app : « Télécharger avec osu!direct ». Sans compte supporter, la page de la map s’ouvre sur le site osu!.
