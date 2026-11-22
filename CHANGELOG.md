@@ -6,6 +6,11 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et les n
 
 ## [Non publié]
 
+## [1.1.0-beta.2] - 2026-11-22
+
+### Modifié
+- Paramètres : les versions bêta s’activent avec un interrupteur, au lieu d’une case à cocher.
+
 ## [1.1.0-beta.1] - 2026-11-22
 
 ### Ajouté

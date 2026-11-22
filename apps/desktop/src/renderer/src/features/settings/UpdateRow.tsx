@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { UpdateState } from '../../../../main/updates'
+import { Switch } from '../../shared/Switch'
 import { useUpdateState } from '../../shared/useUpdateState'
 
 const BUTTON = 'rounded-lg bg-panel-raised px-3 py-1.5 font-medium hover:bg-line'
@@ -59,16 +60,14 @@ function BetaRow(props: { version: string | null }): React.JSX.Element {
             ' Tu gardes ta bêta jusqu’à la prochaine version stable, qui la remplacera.'}
         </div>
       </div>
-      <input
-        type="checkbox"
+      <Switch
         checked={beta ?? false}
         disabled={beta === null}
-        onChange={(event) => {
-          const next = event.target.checked
+        label="Recevoir les versions bêta"
+        onChange={(next) => {
           setBeta(next)
           window.api.setBetaUpdates(next).catch(console.error)
         }}
-        className="size-4 shrink-0 accent-accent"
       />
     </label>
   )
