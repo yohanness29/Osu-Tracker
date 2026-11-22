@@ -6,6 +6,8 @@ import { Dropdown } from '../../shared/Dropdown'
 import { opponentLevel, playerLabel, trainedSlots } from './tournamentView'
 
 const DEFAULT_BANS = 1
+// Matches are won by the first to (best of + 1) / 2 points.
+const BEST_OF = [3, 5, 7, 9, 11, 13, 15]
 
 function NumberField(props: {
   label: string
@@ -93,12 +95,23 @@ export function PrepTab(props: {
           placeholder={String(DEFAULT_BANS)}
           onChange={(value) => update({ bans: value })}
         />
-        <NumberField
-          label="Best of"
-          value={tournament.bestOf}
-          placeholder="9"
-          onChange={(value) => update({ bestOf: value })}
-        />
+        <label className="flex items-center gap-2 rounded-md bg-panel px-3 py-1.5 text-sm">
+          <span className="text-ink-soft">Format</span>
+          <select
+            value={tournament.bestOf ?? ''}
+            onChange={(event) =>
+              update({ bestOf: event.target.value === '' ? null : Number(event.target.value) })
+            }
+            className="rounded bg-panel-raised px-2 py-0.5 tabular-nums"
+          >
+            <option value="">Non précisé</option>
+            {BEST_OF.map((bestOf) => (
+              <option key={bestOf} value={bestOf}>
+                Best of {bestOf} · premier à {(bestOf + 1) / 2} (FT{(bestOf + 1) / 2})
+              </option>
+            ))}
+          </select>
+        </label>
         <Dropdown
           single
           label="Pool du match"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import type { TournamentData, ImportProgress } from '../../../../main/tournaments'
+import { CopyMapId } from '../../shared/CopyMapId'
 import { errorMessage } from '../../shared/errors'
 import { MapCover } from '../../shared/MapCover'
 import { MapStyle } from '../../shared/MapStyle'
@@ -144,6 +145,7 @@ function SlotRow({ slot, mode }: { slot: TrainedSlot; mode: string }): React.JSX
             {formatLength(map.lengthSeconds)}
           </span>
           <MapStyle style={map.style} tags={map.tags} />
+          <CopyMapId beatmapId={map.beatmapId} />
         </div>
         {training.readiness !== 'ready' && (
           <div className="mt-0.5 truncate text-xs" style={{ color: readiness.color }}>

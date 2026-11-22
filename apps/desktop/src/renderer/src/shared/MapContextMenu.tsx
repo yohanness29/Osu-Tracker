@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { Playlist, PlaylistMapInput } from '@osu-tracker/storage'
+import { useAccount } from '../features/profile/useAccount'
 import { FloatingMenu } from './FloatingMenu'
 import { closeMapMenu, useMapMenu } from './mapMenu'
 
 function PlaylistMenu(props: { map: PlaylistMapInput }): React.JSX.Element {
   const { map } = props
   const navigate = useNavigate()
+  const supporter = useAccount()?.user?.supporter ?? false
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [holding, setHolding] = useState<string[]>([])
   const [name, setName] = useState('')
@@ -61,6 +63,23 @@ function PlaylistMenu(props: { map: PlaylistMapInput }): React.JSX.Element {
       >
         Copier l’ID ({map.beatmapId})
       </button>
+      {map.beatmapId > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            // osu!direct downloads in game for supporters only; others get the page of the map.
+            window.open(
+              supporter
+                ? `osu://b/${map.beatmapId}`
+                : `https://osu.ppy.sh/beatmapsets/${map.beatmapsetId}#${map.mode}/${map.beatmapId}`
+            )
+            closeMapMenu()
+          }}
+          className="w-full rounded-md px-3 py-1.5 text-left text-ink hover:bg-line"
+        >
+          {supporter ? 'Télécharger avec osu!direct' : 'Télécharger sur le site osu!'}
+        </button>
+      )}
 
       <div className="mt-1 border-t border-line px-3 pt-2 pb-1 text-xs font-semibold text-ink-soft">
         Ajouter à une playlist

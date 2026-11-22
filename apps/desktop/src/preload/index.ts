@@ -34,6 +34,8 @@ const api = {
   checkForUpdates: (): Promise<void> => ipcRenderer.invoke('updates:check'),
   downloadUpdate: (): Promise<void> => ipcRenderer.invoke('updates:download'),
   installUpdate: (): Promise<void> => ipcRenderer.invoke('updates:install'),
+  getBetaUpdates: (): Promise<boolean> => ipcRenderer.invoke('updates:get-beta'),
+  setBetaUpdates: (beta: boolean): Promise<void> => ipcRenderer.invoke('updates:set-beta', beta),
   onUpdateState: (listener: (state: UpdateState) => void): (() => void) => {
     const handler = (_: unknown, state: UpdateState): void => listener(state)
     ipcRenderer.on('updates:state', handler)

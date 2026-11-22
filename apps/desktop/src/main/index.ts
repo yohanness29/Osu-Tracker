@@ -16,8 +16,10 @@ import { setupAppData } from './app-data'
 import {
   checkForUpdates,
   downloadUpdate,
+  getBetaUpdates,
   getUpdateState,
   installUpdate,
+  setBetaUpdates,
   setupUpdates
 } from './updates'
 import {
@@ -124,6 +126,8 @@ app.whenReady().then(() => {
   ipcMain.handle('updates:check', () => checkForUpdates())
   ipcMain.handle('updates:download', () => downloadUpdate())
   ipcMain.handle('updates:install', () => installUpdate())
+  ipcMain.handle('updates:get-beta', () => getBetaUpdates())
+  ipcMain.handle('updates:set-beta', (_, beta: boolean) => setBetaUpdates(beta === true))
   ipcMain.handle('app:open-data-folder', async () => {
     const failure = await shell.openPath(app.getPath('userData'))
     if (failure) throw new Error(failure)
