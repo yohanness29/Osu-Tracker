@@ -641,9 +641,14 @@ export type PlayerStanding = {
   /** Bracket matches lost, among those imported. */
   losses: number;
   eliminated: boolean;
+  /** What decided it: a choice by hand, the bracket, or the matches imported. */
+  decidedBy: "hand" | "bracket" | "matches";
   /** Maps played in the imported matches. */
   games: number;
 };
+
+/** A player said in or out by hand, above what the bracket and the matches say. */
+export type ManualStatus = { userId: number; eliminated: boolean };
 
 export type TournamentFormat = {
   /** How many players the qualifiers keep; null when everyone goes on. */
@@ -652,10 +657,21 @@ export type TournamentFormat = {
   loserBracket: boolean;
 };
 
-/** Every player met, the player included, by seed: who is still in the tournament. */
+/**
+ * What the bracket of the tournament says, when one is linked: who plays in it, and who it has
+ * knocked out, forfeits included. Names as written on the bracket.
+ */
+export type BracketStatus = { players: string[]; out: string[] };
+
+/**
+ * Every player met, the player included, by seed: who is still in the tournament. With the
+ * bracket, a player in it is out only when it says so; the matches imported decide otherwise.
+ */
 export function tournamentStandings(
   matches: TournamentMatch[],
   format: TournamentFormat,
+  bracket: BracketStatus | null = null,
+  manual: ManualStatus[] = [],
 ): PlayerStanding[] {
   const seeds = qualifierSeeds(matches);
   const players = new Map<number, PlayerStanding>();
@@ -666,6 +682,7 @@ export function tournamentStandings(
       seed: seeds.get(userId) ?? null,
       losses: 0,
       eliminated: false,
+      decidedBy: "matches",
       games: 0,
     };
     known.games += 1;
@@ -685,15 +702,124 @@ export function tournamentStandings(
 
   const allowedLosses = format.loserBracket ? 2 : 1;
   const qualified = format.qualifiedCount;
+  const key = (name: string): string => name.trim().toLowerCase();
+  const inBracket = new Set(bracket?.players.map(key));
+  const outOfBracket = new Set(bracket?.out.map(key));
   for (const player of players.values()) {
     const notQualified =
       qualified !== null &&
       seeds.size > 0 &&
       (player.seed === null || player.seed > qualified);
-    player.eliminated = notQualified || player.losses >= allowedLosses;
+    const byHand = manual.find(({ userId }) => userId === player.userId);
+    if (byHand) {
+      player.eliminated = byHand.eliminated;
+      player.decidedBy = "hand";
+    } else if (inBracket.has(key(player.username))) {
+      player.eliminated = notQualified || outOfBracket.has(key(player.username));
+      player.decidedBy = "bracket";
+    } else {
+      player.eliminated = notQualified || player.losses >= allowedLosses;
+    }
   }
 
   return [...players.values()].toSorted(
     (a, b) => (a.seed ?? Infinity) - (b.seed ?? Infinity) || b.games - a.games,
   );
+}
+
+/** A pool of qualifiers, named so: Qualifiers, Quals… */
+export function isQualifierPool(pool: { name: string }): boolean {
+  return /qualif|^quals?$/i.test(pool.name.trim());
+}
+
+/**
+ * Where the player stands in the tournament.
+ * - dnq: not among the players the qualifiers keep;
+ * - placed: done, eliminated or winner, placed between `high` and `low` (17-32 is high 32, low 17), or exactly
+ *   `high` when both are equal;
+ * - alive: still in the tournament;
+ * - unknown: nothing imported shows the player in it.
+ */
+export type Placement =
+  | { kind: "unknown" }
+  | { kind: "dnq" }
+  | { kind: "alive" }
+  | { kind: "placed"; high: number; low: number };
+
+function powerOfTwoAbove(count: number): number {
+  return 2 ** Math.ceil(Math.log2(Math.max(2, count)));
+}
+
+/**
+ * The placement of a single elimination bracket: losing in the round where `size` players are
+ * left places between `size` and `size / 2 + 1`, the final gives 2, winning it gives 1.
+ * With a loser bracket, the round of the last loss stands for it: close, not exact.
+ */
+export function tournamentPlacement(
+  matches: TournamentMatch[],
+  pools: TournamentPool[],
+  format: TournamentFormat,
+  userId: number,
+  bracket: BracketStatus | null = null,
+  manual: ManualStatus[] = [],
+): Placement {
+  const standings = tournamentStandings(matches, format, bracket, manual);
+  const me = standings.find((player) => player.userId === userId);
+  if (!me) return { kind: "unknown" };
+
+  const seeded = standings.filter(({ seed }) => seed !== null).length;
+  if (
+    format.qualifiedCount !== null &&
+    seeded > 0 &&
+    (me.seed === null || me.seed > format.qualifiedCount)
+  ) {
+    return { kind: "dnq" };
+  }
+
+  // The bracket knows when the player is still in, even without every match imported.
+  const name = me.username.trim().toLowerCase();
+  const onBracket = (names: string[]): boolean =>
+    names.some((candidate) => candidate.trim().toLowerCase() === name);
+  if (me.decidedBy === "hand" && !me.eliminated) return { kind: "alive" };
+  if (bracket && onBracket(bracket.players) && !onBracket(bracket.out)) {
+    return { kind: "alive" };
+  }
+
+  const bracketPools = pools.filter((pool) => !isQualifierPool(pool));
+  const bracketMatches = matches
+    .filter((match) => !isQualifierMatch(match))
+    .toSorted((a, b) => a.startedAt - b.startedAt);
+  const bracketPlayers = new Set(
+    bracketMatches.flatMap(({ scores }) => scores.map((score) => score.userId)),
+  ).size;
+  const size = format.qualifiedCount ?? powerOfTwoAbove(Math.max(seeded, bracketPlayers));
+
+  // Round by round, the matches the player won and lost.
+  const allowedLosses = format.loserBracket ? 2 : 1;
+  let losses = 0;
+  let lastWin = -1;
+  for (const match of bracketMatches) {
+    const between = headToHead(match);
+    if (!between || between.review.wins === between.review.losses) continue;
+    const players = [between.player.userId, between.review.opponent.userId];
+    if (!players.includes(userId)) continue;
+    const won =
+      (between.player.userId === userId) ===
+      between.review.wins > between.review.losses;
+    const pool = poolOfMatch(match, bracketPools);
+    const round = pool ? bracketPools.indexOf(pool) : -1;
+    if (won) {
+      lastWin = Math.max(lastWin, round);
+      continue;
+    }
+    losses += 1;
+    if (losses >= allowedLosses) {
+      const left = Math.max(2, size / 2 ** Math.max(0, round));
+      return { kind: "placed", high: left, low: left <= 2 ? 2 : left / 2 + 1 };
+    }
+  }
+
+  // The final won: the round of two players.
+  if (lastWin >= 0 && size / 2 ** lastWin <= 2) return { kind: "placed", high: 1, low: 1 };
+  return { kind: "alive" };
 }

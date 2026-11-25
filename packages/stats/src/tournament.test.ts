@@ -17,6 +17,7 @@ import {
   playersMet,
   reviewMatch,
   slotTraining,
+  tournamentPlacement,
   tournamentStandings,
 } from "./tournament";
 
@@ -322,6 +323,8 @@ describe("matchRounds", () => {
     id,
     name: id,
     createdAt: 0,
+    bestOf: null,
+    bans: null,
     maps: beatmapIds.map((beatmapId) => ({ beatmapId }) as PoolMap),
   });
   const at = (
@@ -514,5 +517,125 @@ describe("tournamentStandings", () => {
         .map(({ userId }) => userId);
     expect(out(false)).toEqual([1, 4]);
     expect(out(true)).toEqual([4]);
+  });
+});
+
+describe("tournamentStandings with a bracket", () => {
+  const quals: TournamentMatch = {
+    ...match(
+      [1, 2, 3].map((userId) =>
+        score({ userId, username: `p${userId}`, beatmapId: 10, score: 1000 - userId }),
+      ),
+    ),
+    name: "Qualifiers",
+  };
+
+  it("trusts the bracket for its players, forfeits included", () => {
+    const standings = tournamentStandings(
+      [quals],
+      { qualifiedCount: null, loserBracket: true },
+      // p2 lost by forfeit twice: no match to import, the bracket knows.
+      { players: ["P1", "p2"], out: ["p2"] },
+    );
+    expect(standings.map(({ userId, eliminated }) => [userId, eliminated])).toEqual([
+      [1, false],
+      [2, true],
+      [3, false],
+    ]);
+  });
+});
+
+describe("tournamentStandings by hand", () => {
+  it("puts a choice by hand above the bracket and the matches", () => {
+    const quals: TournamentMatch = {
+      ...match(
+        [1, 2].map((userId) =>
+          score({ userId, username: `p${userId}`, beatmapId: 10, score: 1000 - userId }),
+        ),
+      ),
+      name: "Qualifiers",
+    };
+    const standings = tournamentStandings(
+      [quals],
+      { qualifiedCount: null, loserBracket: false },
+      { players: ["p1", "p2"], out: ["p1"] },
+      [
+        { userId: 1, eliminated: false },
+        { userId: 2, eliminated: true },
+      ],
+    );
+    expect(
+      standings.map(({ userId, eliminated, decidedBy }) => [userId, eliminated, decidedBy]),
+    ).toEqual([
+      [1, false, "hand"],
+      [2, true, "hand"],
+    ]);
+  });
+});
+
+describe("tournamentPlacement", () => {
+  const pool = (name: string, beatmapId: number): TournamentPool => ({
+    id: name,
+    name,
+    createdAt: 0,
+    bestOf: null,
+    bans: null,
+    maps: [{ beatmapId } as PoolMap],
+  });
+  const pools = [pool("Quals", 10), pool("SF", 20), pool("F", 30)];
+  // One map each: p1 to p4 seeded in this order.
+  const quals: TournamentMatch = {
+    ...match(
+      [1, 2, 3, 4].map((userId) =>
+        score({ userId, username: `p${userId}`, beatmapId: 10, score: 1000 - userId }),
+      ),
+    ),
+    name: "Qualifiers",
+  };
+  const versus = (
+    winner: number,
+    loser: number,
+    beatmapId: number,
+    startedAt: number,
+  ): TournamentMatch => ({
+    ...match([
+      score({ userId: winner, username: `p${winner}`, beatmapId, score: 2 }),
+      score({ userId: loser, username: `p${loser}`, beatmapId, score: 1 }),
+    ]),
+    id: `${winner}-${loser}`,
+    name: `(p${winner}) vs. (p${loser})`,
+    startedAt,
+  });
+  const semis = [versus(1, 4, 20, 1), versus(2, 3, 20, 2)];
+  const single = { qualifiedCount: 4, loserBracket: false };
+  const placementOf = (
+    matches: TournamentMatch[],
+    userId: number,
+    format = single,
+  ): ReturnType<typeof tournamentPlacement> =>
+    tournamentPlacement([quals, ...matches], pools, format, userId);
+
+  it("places a player lost in a round between its size and the next one", () => {
+    expect(placementOf(semis, 4)).toEqual({ kind: "placed", high: 4, low: 3 });
+  });
+
+  it("gives 2 to the finalist and 1 to the winner", () => {
+    const final = [...semis, versus(1, 2, 30, 3)];
+    expect(placementOf(final, 2)).toEqual({ kind: "placed", high: 2, low: 2 });
+    expect(placementOf(final, 1)).toEqual({ kind: "placed", high: 1, low: 1 });
+  });
+
+  it("keeps a player in the tournament until their last allowed loss", () => {
+    expect(placementOf(semis, 1)).toEqual({ kind: "alive" });
+    expect(placementOf(semis, 4, { qualifiedCount: 4, loserBracket: true })).toEqual({
+      kind: "alive",
+    });
+  });
+
+  it("tells a player the qualifiers left out", () => {
+    expect(placementOf([], 3, { qualifiedCount: 2, loserBracket: false })).toEqual({
+      kind: "dnq",
+    });
+    expect(placementOf([], 9)).toEqual({ kind: "unknown" });
   });
 });
