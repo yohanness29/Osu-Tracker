@@ -33,8 +33,24 @@ export function Dropdown(props: {
   selected: string[]
   onChange: (selected: string[]) => void
   single?: boolean
+  /** With `single`: a choice is always kept, it can only be replaced. */
+  required?: boolean
+  /** The label is only read by screen readers: the value is enough. */
+  hideLabel?: boolean
+  /** As wide as its container, its list too. */
+  fill?: boolean
 }): React.JSX.Element {
-  const { label, placeholder, options, selected, onChange, single = false } = props
+  const {
+    label,
+    placeholder,
+    options,
+    selected,
+    onChange,
+    single = false,
+    required = false,
+    hideLabel = false,
+    fill = false
+  } = props
   const [open, setOpen] = useState(false)
   const container = useRef<HTMLDivElement>(null)
 
@@ -80,7 +96,7 @@ export function Dropdown(props: {
         aria-pressed={isSelected}
         onClick={() => toggle(value)}
         className={`mt-0.5 block w-full rounded-md px-3 py-1.5 text-left text-sm first:mt-0 ${
-          isSelected ? 'bg-accent font-semibold text-page' : 'text-ink hover:bg-line'
+          isSelected ? 'bg-accent font-semibold text-on-accent' : 'text-ink hover:bg-line'
         }`}
       >
         {color && (
@@ -97,7 +113,7 @@ export function Dropdown(props: {
 
   const toggle = (value: string): void => {
     if (single) {
-      onChange(selected.includes(value) ? [] : [value])
+      onChange(selected.includes(value) && !required ? [] : [value])
       setOpen(false)
       return
     }
@@ -109,15 +125,18 @@ export function Dropdown(props: {
   }
 
   return (
-    <div ref={container} className="relative">
+    <div ref={container} className={`relative ${fill ? 'w-full' : ''}`}>
       <button
         type="button"
         aria-expanded={open}
+        aria-label={hideLabel ? label : undefined}
         onClick={toggleList}
-        className="flex items-center gap-2 rounded-md bg-panel px-3 py-1.5 text-sm hover:bg-panel-raised"
+        className={`flex items-center gap-2 rounded-md bg-panel px-3 py-1.5 text-sm hover:bg-panel-raised ${
+          fill ? 'w-full' : ''
+        }`}
       >
-        <span className="text-ink-soft">{label}</span>
-        <span className="max-w-44 truncate font-medium text-ink">
+        {!hideLabel && <span className="text-ink-soft">{label}</span>}
+        <span className={`truncate font-medium text-ink ${fill ? 'flex-1 text-left' : 'max-w-44'}`}>
           {summary(options, selected, placeholder)}
         </span>
         <span aria-hidden className={`text-xs text-ink-soft ${open ? 'rotate-180' : ''}`}>
@@ -126,7 +145,11 @@ export function Dropdown(props: {
       </button>
 
       {open && (
-        <div className="absolute left-0 z-20 mt-1 min-w-48 rounded-lg border border-line bg-panel-raised p-1 shadow-lg">
+        <div
+          className={`absolute left-0 z-20 mt-1 min-w-48 rounded-lg border border-line bg-panel-raised p-1 shadow-lg ${
+            fill ? 'right-0' : ''
+          }`}
+        >
           {options.length === 0 && (
             <p className="px-2 py-1.5 text-sm text-ink-soft">Rien à choisir pour l’instant.</p>
           )}
@@ -159,7 +182,7 @@ export function Dropdown(props: {
                         {name}
                       </span>
                       {chosen > 0 && (
-                        <span className="rounded bg-accent px-1.5 text-page normal-case">
+                        <span className="rounded bg-accent px-1.5 text-on-accent normal-case">
                           {chosen}
                         </span>
                       )}
@@ -168,7 +191,7 @@ export function Dropdown(props: {
                   </div>
                 )
               })}
-          {selected.length > 0 && (
+          {selected.length > 0 && !required && (
             <button
               type="button"
               onClick={() => onChange([])}

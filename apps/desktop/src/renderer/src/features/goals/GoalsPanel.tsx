@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { goalProgress } from '@osu-tracker/stats'
 import type { Goal, GoalType, RecentPlay } from '@osu-tracker/storage'
+import { Dropdown } from '../../shared/Dropdown'
 
 const GOAL_TYPES: { type: GoalType; label: string; target: number }[] = [
   { type: 'pp_gain', label: 'Gagner des pp', target: 20 },
@@ -96,18 +97,16 @@ function GoalForm(props: {
 
   return (
     <form onSubmit={submit} className="mt-2 flex flex-wrap items-center gap-2">
-      <select
-        value={type}
-        aria-label="Type d’objectif"
-        onChange={(event) => changeType(event.target.value as GoalType)}
-        className={inputClass}
-      >
-        {GOAL_TYPES.map((goal) => (
-          <option key={goal.type} value={goal.type}>
-            {goal.label}
-          </option>
-        ))}
-      </select>
+      <Dropdown
+        single
+        required
+        hideLabel
+        label="Type d’objectif"
+        placeholder="Type d’objectif"
+        selected={[type]}
+        onChange={([value]) => value && changeType(value as GoalType)}
+        options={GOAL_TYPES.map((goal) => ({ value: goal.type, label: goal.label }))}
+      />
       <input
         type="number"
         min={0}
@@ -134,7 +133,7 @@ function GoalForm(props: {
       )}
       <button
         type="submit"
-        className="rounded-md bg-accent px-3 py-1 text-sm font-semibold text-page"
+        className="rounded-md bg-accent px-3 py-1 text-sm font-semibold text-on-accent"
       >
         Ajouter
       </button>
