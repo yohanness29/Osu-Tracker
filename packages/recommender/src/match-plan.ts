@@ -12,13 +12,36 @@ export type OpponentLevel = Partial<
   Record<ModCategory, { accuracy: number; misses: number }>
 >;
 
+/**
+ * How a slot compares: to the opponent when they are known, else to the player's usual level.
+ * Unknown when the player has not finished it with its mods yet.
+ */
+export type Verdict = "ahead" | "even" | "behind" | "unknown";
+
+type Result = { accuracy: number; misses: number };
+
 export type SlotAdvice = {
   slot: string;
   title: string;
+  category: ModCategory;
+  verdict: Verdict;
+  /** The player's recent result on the slot, null before a finished try. */
+  mine: Result | null;
+  /** What the opponent showed in the mods of the slot, null without matches of theirs. */
+  theirs: Result | null;
   /** Why, in a few words the player can check. */
   reason: string;
   /** For a pick: what to play instead if the opponent bans it. */
   backup?: string;
+};
+
+/** Each slot of the pool, in its order, with its verdict and its part in the plan. */
+export type SlotOverview = {
+  slot: string;
+  title: string;
+  category: ModCategory;
+  verdict: Verdict;
+  role: "ban" | "pick" | "their-pick" | null;
 };
 
 export type MatchPlan = {
@@ -26,6 +49,7 @@ export type MatchPlan = {
   picks: SlotAdvice[];
   /** What the opponent will likely pick: the slots where they lead the most. */
   theirPicks: SlotAdvice[];
+  overview: SlotOverview[];
 };
 
 // A miss costs a lot in ScoreV2: it weighs as much as some accuracy points.
@@ -34,6 +58,8 @@ const MISS_WEIGHT = 0.4;
 const UNTESTED_PENALTY = 2;
 const UNSTEADY_UR = 165;
 const PICKS_SHOWN = 5;
+// Below this gap, in accuracy points with misses counted, a slot is even.
+const EVEN_GAP = 0.5;
 const THEIR_PICKS_SHOWN = 3;
 
 function percent(value: number): string {
@@ -43,6 +69,8 @@ function percent(value: number): string {
 type Rated = PlannedSlot & {
   mine: number;
   theirs: number | null;
+  /** What the opponent showed in its mods, as shown to the player. */
+  theirResult: Result | null;
   edge: number;
   /** How much the result may vary from one try to the next. */
   risk: number;
@@ -68,7 +96,7 @@ function rate(slots: PlannedSlot[], opponent: OpponentLevel | null): Rated[] {
       Math.max(0, ((training.unstableRate ?? UNSTEADY_UR) - UNSTEADY_UR) / 25);
     // Without anything on the opponent, slots are compared to the player's own level.
     const edge = mine - (theirs ?? usual);
-    return { ...slot, mine, theirs, edge, risk };
+    return { ...slot, mine, theirs, theirResult: level ?? null, edge, risk };
   });
 }
 
@@ -87,6 +115,29 @@ function describe(slot: Rated): string {
   if (slot.theirs !== null)
     parts.push(`lui ≈ ${percent(slot.theirs)} en ${slot.category}`);
   return parts.join(" · ");
+}
+
+function verdictOf(slot: Rated): Verdict {
+  if (slot.training.recentAccuracy === null) return "unknown";
+  if (slot.edge > EVEN_GAP) return "ahead";
+  if (slot.edge < -EVEN_GAP) return "behind";
+  return "even";
+}
+
+function advice(slot: Rated, reason: string): SlotAdvice {
+  const { training } = slot;
+  return {
+    slot: slot.slot,
+    title: slot.title,
+    category: slot.category,
+    verdict: verdictOf(slot),
+    mine:
+      training.recentAccuracy === null
+        ? null
+        : { accuracy: training.recentAccuracy, misses: training.recentMisses ?? 0 },
+    theirs: slot.theirResult,
+    reason,
+  };
 }
 
 /** A slot of the same mods if one is left, else the next best one. */
@@ -130,69 +181,33 @@ export function planMatch(
   const picks = ranked.slice(0, PICKS_SHOWN);
   const spare = ranked.slice(PICKS_SHOWN);
 
+  const theirPicks = open
+    .toSorted((a, b) => a.edge - b.edge)
+    .slice(0, THEIR_PICKS_SHOWN);
+  const roleOf = (slot: Rated): SlotOverview["role"] =>
+    banned.includes(slot)
+      ? "ban"
+      : picks.includes(slot)
+        ? "pick"
+        : theirPicks.includes(slot)
+          ? "their-pick"
+          : null;
+
   return {
-    bans: banned.map((slot) => ({
-      slot: slot.slot,
-      title: slot.title,
-      reason: describe(slot) + (slot.risk >= 2 ? " · résultats instables" : ""),
-    })),
+    bans: banned.map((slot) =>
+      advice(slot, describe(slot) + (slot.risk >= 2 ? " · résultats instables" : "")),
+    ),
     picks: picks.map((slot, index) => ({
-      slot: slot.slot,
-      title: slot.title,
-      reason: describe(slot),
+      ...advice(slot, describe(slot)),
       backup: backupFor(slot, index, picks, spare)?.slot,
     })),
-    theirPicks: open
-      .toSorted((a, b) => a.edge - b.edge)
-      .slice(0, THEIR_PICKS_SHOWN)
-      .map((slot) => ({
-        slot: slot.slot,
-        title: slot.title,
-        reason: describe(slot),
-      })),
-  };
-}
-
-export type WarmupMap = { slot: string; title: string; why: string };
-
-/**
- * Maps to play once each during the warm-up, in this order: the least sure slots, then a
- * comfortable one to end on.
- */
-export function planWarmup(slots: PlannedSlot[]): WarmupMap[] {
-  const order: Record<SlotTraining["readiness"], number> = {
-    untested: 0,
-    weak: 1,
-    fragile: 2,
-    ready: 3,
-  };
-  const playable = slots.filter(({ category }) => category !== "TB");
-  const sorted = playable.toSorted(
-    (a, b) =>
-      order[a.training.readiness] - order[b.training.readiness] ||
-      (a.training.recentAccuracy ?? 0) - (b.training.recentAccuracy ?? 0),
-  );
-  const unsure = sorted
-    .filter(({ training }) => training.readiness !== "ready")
-    .slice(0, 3);
-  const comfortable = sorted.findLast(
-    ({ training }) => training.readiness === "ready",
-  );
-
-  return [
-    ...unsure.map((slot) => ({
+    theirPicks: theirPicks.map((slot) => advice(slot, describe(slot))),
+    overview: rated.map((slot) => ({
       slot: slot.slot,
       title: slot.title,
-      why: "Une seule fois, pour te remettre la map en tête",
+      category: slot.category,
+      verdict: verdictOf(slot),
+      role: roleOf(slot),
     })),
-    ...(comfortable
-      ? [
-          {
-            slot: comfortable.slot,
-            title: comfortable.title,
-            why: "Pour finir en confiance",
-          },
-        ]
-      : []),
-  ];
+  };
 }

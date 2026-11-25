@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SlotTraining } from "@osu-tracker/stats";
-import { planMatch, planWarmup, type PlannedSlot } from "./match-plan";
+import { planMatch, type PlannedSlot } from "./match-plan";
 
 function training(overrides: Partial<SlotTraining> = {}): SlotTraining {
   return {
@@ -83,14 +83,23 @@ describe("planMatch", () => {
     expect(plan.theirPicks[0]!.slot).toBe("DT1");
     expect(plan.theirPicks[0]!.reason).toContain("lui ≈ 99,4 % en DT");
   });
-});
 
-describe("planWarmup", () => {
-  it("goes over the least sure slots and ends on a sure one", () => {
-    expect(planWarmup(pool).map(({ slot: name }) => name)).toEqual([
-      "HD3",
-      "HR1",
-      "NM1",
-    ]);
+  it("gives every slot but the tiebreaker a verdict against the opponent", () => {
+    const plan = planMatch(
+      [...pool, slot("HR2", "HR", { recentAccuracy: null, finished: 0 })],
+      { HD: { accuracy: 99.5, misses: 0 }, NM: { accuracy: 98, misses: 1 } },
+      1,
+    );
+    const verdicts = Object.fromEntries(
+      plan.overview.map(({ slot: name, verdict }) => [name, verdict]),
+    );
+    expect(verdicts).toMatchObject({
+      NM1: "ahead",
+      HD3: "behind",
+      HR2: "unknown",
+    });
+    expect(verdicts.TB).toBeUndefined();
+    expect(plan.overview.find(({ slot: name }) => name === "HD3")!.role).toBe("ban");
+    expect(plan.bans[0]!.theirs).toEqual({ accuracy: 99.5, misses: 0 });
   });
 });
