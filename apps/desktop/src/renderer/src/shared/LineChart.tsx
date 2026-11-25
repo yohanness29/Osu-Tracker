@@ -3,6 +3,7 @@ import { BarChart, LineChart as EChartsLine } from 'echarts/charts'
 import { GridComponent, MarkLineComponent, TooltipComponent } from 'echarts/components'
 import { format, init, use as registerCharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
+import { themeColor, useTheme } from './theme'
 
 registerCharts([
   BarChart,
@@ -13,14 +14,19 @@ registerCharts([
   CanvasRenderer
 ])
 
-// Canvas charts cannot read the CSS tokens of main.css.
-const COLORS = {
-  accent: '#ff66aa',
-  accentMuted: '#7a4163',
-  panel: '#262331',
-  line: '#322e40',
-  ink: '#f3f0f7',
-  inkSoft: '#b4aec2'
+// Canvas charts cannot use the CSS tokens of main.css: their values are read for each theme.
+function chartColors(): Record<
+  'accent' | 'accentMuted' | 'panel' | 'line' | 'ink' | 'inkSoft',
+  string
+> {
+  return {
+    accent: themeColor('accent'),
+    accentMuted: themeColor('accent-muted'),
+    panel: themeColor('panel-raised'),
+    line: themeColor('line'),
+    ink: themeColor('ink'),
+    inkSoft: themeColor('ink-soft')
+  }
 }
 
 export type ChartPoint = {
@@ -46,10 +52,12 @@ export function LineChart(props: {
 }): React.JSX.Element {
   const { points, unit, decimals, height = 130, range, reference = null, bars = false } = props
   const container = useRef<HTMLDivElement>(null)
+  const theme = useTheme((state) => state.theme)
 
   useEffect(() => {
     if (!container.current) return
 
+    const COLORS = chartColors()
     const chart = init(container.current, undefined, { renderer: 'canvas' })
     chart.setOption({
       animation: false,
@@ -128,7 +136,7 @@ export function LineChart(props: {
       observer.disconnect()
       chart.dispose()
     }
-  }, [points, unit, decimals, range, reference, bars])
+  }, [points, unit, decimals, range, reference, bars, theme])
 
   return <div ref={container} style={{ height }} className="w-full" />
 }

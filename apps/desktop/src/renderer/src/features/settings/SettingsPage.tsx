@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import type { TosuLaunch } from '../../../../main/tosu-process'
+import { Choices } from '../../shared/Choices'
 import { errorMessage } from '../../shared/errors'
+import { setThemeChoice, useTheme, type ThemeChoice } from '../../shared/theme'
 import { clearSavedPreferences } from '../../shared/usePersistentState'
 import { useTracking } from '../../store'
 import { useAccount } from '../profile/useAccount'
@@ -84,7 +86,7 @@ function AccountSection(): React.JSX.Element {
                   window.api.saveCredentials({ clientId: '', clientSecret: '' })
                   setConfirmForget(false)
                 }}
-                className="rounded-lg bg-failed px-3 py-1.5 font-semibold text-page"
+                className="rounded-lg bg-failed px-3 py-1.5 font-semibold text-on-accent"
               >
                 Retirer
               </button>
@@ -118,10 +120,20 @@ function TosuSection(): React.JSX.Element {
   )
 }
 
+const THEMES: { value: ThemeChoice; label: string }[] = [
+  { value: 'system', label: 'Système' },
+  { value: 'dark', label: 'Sombre' },
+  { value: 'light', label: 'Clair' }
+]
+
 function InterfaceSection(): React.JSX.Element {
   const [cleared, setCleared] = useState(false)
+  const choice = useTheme((state) => state.choice)
   return (
     <Section title="Interface">
+      <Row label="Thème" detail="Système suit le thème clair ou sombre de ton ordinateur.">
+        <Choices label="Thème" value={choice} choices={THEMES} onChange={setThemeChoice} />
+      </Row>
       <Row
         label="Filtres enregistrés"
         detail="Les recherches et filtres des pages Maps et Suggestions, et le menu replié."

@@ -181,7 +181,7 @@ function Sidebar(): React.JSX.Element {
           folded ? 'justify-between gap-1 pl-1' : 'gap-2 px-2'
         }`}
       >
-        <span className="rounded-md bg-accent px-1.5 py-0.5 text-xs font-extrabold text-page">
+        <span className="rounded-md bg-accent px-1.5 py-0.5 text-xs font-extrabold text-on-accent">
           O!tr
         </span>
         {!folded && <span className="flex-1">Osu!tracker</span>}

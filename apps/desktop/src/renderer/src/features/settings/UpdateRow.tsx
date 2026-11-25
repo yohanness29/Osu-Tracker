@@ -4,7 +4,7 @@ import { Switch } from '../../shared/Switch'
 import { useUpdateState } from '../../shared/useUpdateState'
 
 const BUTTON = 'rounded-lg bg-panel-raised px-3 py-1.5 font-medium hover:bg-line'
-const MAIN_BUTTON = 'rounded-lg bg-accent px-3 py-1.5 font-semibold text-page'
+const MAIN_BUTTON = 'rounded-lg bg-accent px-3 py-1.5 font-semibold text-on-accent'
 
 function describe(state: UpdateState): string {
   switch (state.status) {

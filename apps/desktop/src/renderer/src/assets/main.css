@@ -9,6 +9,10 @@
   --color-ink-soft: #b4aec2;
   --color-ink-faint: #8a8499;
   --color-accent: #ff66aa;
+  --color-accent-muted: #7a4163;
+  /* Text laid on the accent and result colors. */
+  --color-on-accent: #14121a;
+  --color-warning: #ffd166;
 
   /* Validated on the panel color, in this order, with the dataviz palette script. */
   --color-passed: #14a6a0;
@@ -16,7 +20,70 @@
   --color-quit: #8a78d8;
   --color-retried: #b98a10;
 
+  /* Slots of a tournament pool, as tournament sites show them. */
+  --color-mod-nm: #a8a3b8;
+  --color-mod-hd: #ffd166;
+  --color-mod-hr: #ff6b6b;
+  --color-mod-dt: #b388ff;
+  --color-mod-ht: #7cc8ff;
+  --color-mod-ez: #5fd38d;
+  --color-mod-fl: #e2e2e2;
+
+  /* Families of map styles: see styleGroups.ts for what each color stands for. */
+  --color-style-aim: #7cc8ff;
+  --color-style-stream: #ff9a3c;
+  --color-style-speed: #ff4d4d;
+  --color-style-tech: #b388ff;
+  --color-style-reading: #5fd38d;
+  --color-style-precision: #ffd166;
+  --color-style-taiko: #d9a066;
+  --color-style-mania: #e879f9;
+  --color-style-other: #a8a3b8;
+
   --font-sans: 'Inter', 'Segoe UI', 'Noto Sans', system-ui, sans-serif;
+}
+
+/* The light theme: the same colors, darkened enough to read on white. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-page: #f3f1f6;
+  --color-panel: #ffffff;
+  --color-panel-raised: #ebe8f0;
+  --color-line: #dbd6e3;
+  --color-ink: #1c1925;
+  --color-ink-soft: #5c566b;
+  --color-ink-faint: #7a7489;
+  --color-accent: #d6347f;
+  --color-accent-muted: #eeb3cf;
+  --color-on-accent: #ffffff;
+  --color-warning: #a87800;
+
+  --color-passed: #0e8a85;
+  --color-failed: #d63a41;
+  --color-quit: #6a58c2;
+  --color-retried: #946c00;
+
+  --color-mod-nm: #6b6680;
+  --color-mod-hd: #a87800;
+  --color-mod-hr: #d63a3a;
+  --color-mod-dt: #7a4ad8;
+  --color-mod-ht: #2b7fc0;
+  --color-mod-ez: #23905a;
+  --color-mod-fl: #5c5c5c;
+
+  --color-style-aim: #2b7fc0;
+  --color-style-stream: #cf6a12;
+  --color-style-speed: #d42f2f;
+  --color-style-tech: #7a4ad8;
+  --color-style-reading: #23905a;
+  --color-style-precision: #a87800;
+  --color-style-taiko: #9c6526;
+  --color-style-mania: #b131c4;
+  --color-style-other: #6b6680;
+}
+
+:root {
+  color-scheme: dark;
 }
 
 html,
@@ -33,6 +100,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* The focus ring of the system is orange or blue: the app's own, and only for the keyboard. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -45,4 +123,8 @@ body {
 /* Text laid over a map cover: a soft shadow keeps it readable on bright covers. */
 .on-cover {
   text-shadow: 0 1px 3px rgb(0 0 0 / 0.75);
+}
+
+:root[data-theme='light'] .on-cover {
+  text-shadow: 0 1px 3px rgb(255 255 255 / 0.85);
 }

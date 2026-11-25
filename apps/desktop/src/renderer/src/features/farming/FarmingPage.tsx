@@ -412,7 +412,7 @@ export function FarmingPage(): React.JSX.Element {
                   searchFilters(criteria, lengths)
                 )
               }
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-page disabled:opacity-60"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-60"
             >
               {buttonLabel}
             </button>

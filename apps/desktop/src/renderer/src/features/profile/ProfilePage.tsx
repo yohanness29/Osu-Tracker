@@ -69,7 +69,7 @@ function CredentialsForm({ account }: { account: AccountStatus }): React.JSX.Ele
         />
         <button
           type="submit"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-page"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-on-accent"
         >
           Enregistrer
         </button>
@@ -94,7 +94,7 @@ function ConnectCard(): React.JSX.Element {
       <div className="mt-4 flex gap-2">
         <button
           onClick={() => window.api.login()}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-page"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-on-accent"
         >
           Se connecter
         </button>

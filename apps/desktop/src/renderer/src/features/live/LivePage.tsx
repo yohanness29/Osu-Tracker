@@ -75,7 +75,10 @@ function MapHeader({ frame }: { frame: GameFrame }): React.JSX.Element {
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {splitMods(play.mods).map((mod) => (
-          <span key={mod} className="rounded-md bg-accent px-2 py-1 text-xs font-bold text-page">
+          <span
+            key={mod}
+            className="rounded-md bg-accent px-2 py-1 text-xs font-bold text-on-accent"
+          >
             {mod}
           </span>
         ))}

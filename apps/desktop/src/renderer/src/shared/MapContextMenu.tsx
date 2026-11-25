@@ -96,7 +96,7 @@ function PlaylistMenu(props: { map: PlaylistMapInput }): React.JSX.Element {
             aria-pressed={inside}
             onClick={() => toggle(playlist.id).catch(console.error)}
             className={`mt-0.5 flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left ${
-              inside ? 'bg-accent font-semibold text-page' : 'text-ink hover:bg-line'
+              inside ? 'bg-accent font-semibold text-on-accent' : 'text-ink hover:bg-line'
             }`}
           >
             <span aria-hidden>{inside ? '✓' : '+'}</span>

@@ -192,7 +192,7 @@ export function PlaylistsPage(): React.JSX.Element {
           <button
             type="submit"
             disabled={!name.trim()}
-            className="rounded-lg bg-accent px-3 text-sm font-semibold text-page disabled:opacity-50"
+            className="rounded-lg bg-accent px-3 text-sm font-semibold text-on-accent disabled:opacity-50"
           >
             +
           </button>
@@ -230,7 +230,7 @@ export function PlaylistsPage(): React.JSX.Element {
                   <span>Supprimer cette playlist ?</span>
                   <button
                     onClick={() => remove().catch(console.error)}
-                    className="rounded-lg bg-failed px-3 py-1.5 font-semibold text-page"
+                    className="rounded-lg bg-failed px-3 py-1.5 font-semibold text-on-accent"
                   >
                     Supprimer
                   </button>

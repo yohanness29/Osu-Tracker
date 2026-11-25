@@ -3,7 +3,7 @@ import type { DropdownOption } from './Dropdown'
 export type StyleGroup = {
   label: string
   styles: string[]
-  /** Readable on the dark panels of the app. */
+  /** A CSS variable of main.css: readable on the panels of both themes. */
   color: string
   /** Why this color: each one is an image of what the family asks from the player. */
   meaning: string
@@ -14,55 +14,55 @@ export const STYLE_GROUPS: StyleGroup[] = [
   {
     label: 'Aim',
     styles: ['Aim', 'Gros jumps'],
-    color: '#7cc8ff',
+    color: 'var(--color-style-aim)',
     meaning: 'Bleu clair : le vent, le curseur qui file d’un bout à l’autre de l’écran'
   },
   {
     label: 'Stream et stamina',
     styles: ['Stream', 'Deathstream', 'Streams espacés', 'Bursts'],
-    color: '#ff9a3c',
+    color: 'var(--color-style-stream)',
     meaning: 'Orange : le feu qui monte dans les poignets'
   },
   {
     label: 'Speed',
     styles: ['Speed'],
-    color: '#ff4d4d',
+    color: 'var(--color-style-speed)',
     meaning: 'Rouge : des flammes plus violentes, tout va trop vite'
   },
   {
     label: 'Tech',
     styles: ['Rythme 1/3 – 1/6', 'Changements de SV'],
-    color: '#b388ff',
+    color: 'var(--color-style-tech)',
     meaning: 'Violet : l’arcane, des rythmes et des sliders qui jouent des tours'
   },
   {
     label: 'Lecture',
     styles: ['AR haut', 'AR bas', 'Overlaps', 'Stacks'],
-    color: '#5fd38d',
+    color: 'var(--color-style-reading)',
     meaning: 'Vert : l’œil, le regard qui balaie le terrain avant la main'
   },
   {
     label: 'Précision',
     styles: ['Précision', 'Accuracy'],
-    color: '#ffd166',
+    color: 'var(--color-style-precision)',
     meaning: 'Or : le centre de la cible, le travail d’orfèvre'
   },
   {
     label: 'Taiko',
     styles: ['Stamina', 'Rythme', 'Couleur'],
-    color: '#d9a066',
+    color: 'var(--color-style-taiko)',
     meaning: 'Bois : le fût du tambour'
   },
   {
     label: 'Mania',
     styles: ['Long notes', 'Rice'],
-    color: '#e879f9',
+    color: 'var(--color-style-mania)',
     meaning: 'Fuchsia : les néons des claviers'
   },
   {
     label: 'Autres',
     styles: ['Équilibré', 'Marathon', 'Spinners'],
-    color: '#a8a3b8',
+    color: 'var(--color-style-other)',
     meaning: 'Gris : ce qui ne penche vers aucune famille'
   }
 ]

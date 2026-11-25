@@ -57,7 +57,9 @@ function SessionItem(props: {
         aria-current={selected}
         style={{ paddingLeft: depth * 14 + 22 }}
         className={`flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left text-sm ${
-          selected ? 'bg-accent font-semibold text-page' : 'text-ink-soft hover:bg-panel-raised'
+          selected
+            ? 'bg-accent font-semibold text-on-accent'
+            : 'text-ink-soft hover:bg-panel-raised'
         }`}
       >
         <span className="truncate">{session.name ?? `Session ${number}`}</span>
