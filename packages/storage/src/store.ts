@@ -38,6 +38,7 @@ const {
   goals,
   noModMaxPp,
   playSamples,
+  playerStatuses,
   matchScores,
   playlistMaps,
   playlists,
@@ -202,6 +203,7 @@ export type TournamentUpdate = Partial<
     | "bans"
     | "qualifiedCount"
     | "loserBracket"
+    | "challonge"
     | "nextMatchAt"
     | "nextPoolId"
     | "nextOpponentId"
@@ -221,8 +223,16 @@ export type TournamentPool = {
   id: string;
   name: string;
   createdAt: number;
+  /** Null when not set, as for qualifiers. */
+  bestOf: number | null;
+  /** Bans per player, null when not set. */
+  bans: number | null;
   maps: PoolMap[];
 };
+
+export type PoolUpdate = { bestOf?: number | null; bans?: number | null };
+
+export type PlayerStatus = { userId: number; eliminated: boolean };
 
 export type MatchScoreRow = Omit<typeof matchScores.$inferSelect, "matchId">;
 
@@ -749,7 +759,7 @@ export class TrackerStore {
     this.db.delete(tournaments).where(eq(tournaments.id, tournamentId)).run();
   }
 
-  /** The maps keep the order given. */
+  /** The maps keep the order given. A new round starts with the format and bans of the previous one. */
   createPool(
     tournamentId: string,
     name: string,
@@ -757,9 +767,27 @@ export class TrackerStore {
     createdAt: number,
   ): string {
     const id = randomUUID();
+    const previous = this.db
+      .select({ bestOf: tournamentPools.bestOf, bans: tournamentPools.bans })
+      .from(tournamentPools)
+      .where(
+        and(
+          eq(tournamentPools.tournamentId, tournamentId),
+          isNotNull(tournamentPools.bestOf),
+        ),
+      )
+      .orderBy(desc(tournamentPools.createdAt))
+      .get();
     this.db.transaction((tx) => {
       tx.insert(tournamentPools)
-        .values({ id, tournamentId, name: name.trim() || "Pool", createdAt })
+        .values({
+          id,
+          tournamentId,
+          name: name.trim() || "Pool",
+          createdAt,
+          bestOf: previous?.bestOf ?? null,
+          bans: previous?.bans ?? null,
+        })
         .run();
       if (maps.length > 0) {
         tx.insert(poolMaps)
@@ -775,6 +803,15 @@ export class TrackerStore {
       }
     });
     return id;
+  }
+
+  updatePool(poolId: string, changes: PoolUpdate): void {
+    if (Object.keys(changes).length === 0) return;
+    this.db
+      .update(tournamentPools)
+      .set(changes)
+      .where(eq(tournamentPools.id, poolId))
+      .run();
   }
 
   deletePool(poolId: string): void {
@@ -806,10 +843,12 @@ export class TrackerStore {
         .map((map) => ({ ...map, tags: parseTags(map.tags) })),
       ({ poolId }) => poolId,
     );
-    return pools.map(({ id, name, createdAt }) => ({
+    return pools.map(({ id, name, createdAt, bestOf, bans }) => ({
       id,
       name,
       createdAt,
+      bestOf,
+      bans,
       maps: maps.get(id) ?? [],
     }));
   }
@@ -860,6 +899,46 @@ export class TrackerStore {
       }
     });
     return id;
+  }
+
+  /** The players said in or out by hand, for one tournament. */
+  playerStatuses(tournamentId: string): PlayerStatus[] {
+    return this.db
+      .select({
+        userId: playerStatuses.userId,
+        eliminated: playerStatuses.eliminated,
+      })
+      .from(playerStatuses)
+      .where(eq(playerStatuses.tournamentId, tournamentId))
+      .all();
+  }
+
+  /** Null forgets the choice: the bracket or the matches decide again. */
+  setPlayerStatus(
+    tournamentId: string,
+    userId: number,
+    eliminated: boolean | null,
+  ): void {
+    if (eliminated === null) {
+      this.db
+        .delete(playerStatuses)
+        .where(
+          and(
+            eq(playerStatuses.tournamentId, tournamentId),
+            eq(playerStatuses.userId, userId),
+          ),
+        )
+        .run();
+      return;
+    }
+    this.db
+      .insert(playerStatuses)
+      .values({ tournamentId, userId, eliminated })
+      .onConflictDoUpdate({
+        target: [playerStatuses.tournamentId, playerStatuses.userId],
+        set: { eliminated },
+      })
+      .run();
   }
 
   deleteMatch(matchId: string): void {

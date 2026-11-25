@@ -225,6 +225,8 @@ export const tournaments = sqliteTable("tournaments", {
   loserBracket: integer("loser_bracket", { mode: "boolean" })
     .notNull()
     .default(false),
+  /** The id of its bracket on Challonge, as in challonge.com/<id>. */
+  challonge: text("challonge"),
   // The next match, to prepare it.
   nextMatchAt: integer("next_match_at"),
   nextPoolId: text("next_pool_id"),
@@ -240,6 +242,10 @@ export const tournamentPools = sqliteTable("tournament_pools", {
     .references(() => tournaments.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   createdAt: integer("created_at").notNull(),
+  /** The format of the round: its matches are won at (best of + 1) / 2 maps. */
+  bestOf: integer("best_of"),
+  /** Bans per player in the round. */
+  bans: integer("bans"),
 });
 
 // Values read with the mods of the slot when the pool was added.
@@ -286,6 +292,19 @@ export const tournamentMatches = sqliteTable("tournament_matches", {
   startedAt: integer("started_at").notNull(),
   importedAt: integer("imported_at").notNull(),
 });
+
+// A player said in or out by hand: for brackets kept elsewhere than on Challonge, or to fix one.
+export const playerStatuses = sqliteTable(
+  "player_statuses",
+  {
+    tournamentId: text("tournament_id")
+      .notNull()
+      .references(() => tournaments.id, { onDelete: "cascade" }),
+    userId: integer("user_id").notNull(),
+    eliminated: integer("eliminated", { mode: "boolean" }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.tournamentId, table.userId] })],
+);
 
 export const matchScores = sqliteTable(
   "match_scores",

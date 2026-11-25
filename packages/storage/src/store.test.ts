@@ -605,6 +605,21 @@ describe("TrackerStore", () => {
       expect(pools[1]!.maps[0]!.freeMod).toBe(true);
     });
 
+    it("gives each round its format and bans, a new one taking the previous", () => {
+      const id = store.createTournament("BTT10", "taiko", 1);
+      const quals = store.createPool(id, "Quals", [poolMap("NM1", 1)], 10);
+      const ro16 = store.createPool(id, "RO16", [poolMap("NM1", 2)], 20);
+      store.updatePool(ro16, { bestOf: 9, bans: 2 });
+      store.createPool(id, "QF", [poolMap("NM1", 3)], 30);
+
+      const formats = store
+        .tournamentPools(id)
+        .map(({ id, bestOf, bans }) => [id, bestOf, bans]);
+      expect(formats[0]).toEqual([quals, null, null]);
+      expect(formats[1]).toEqual([ro16, 9, 2]);
+      expect(formats[2]!.slice(1)).toEqual([9, 2]);
+    });
+
     it("replaces the scores of a match imported again", () => {
       const id = store.createTournament("BTT10", "taiko", 1);
       const match = {
@@ -620,6 +635,17 @@ describe("TrackerStore", () => {
       expect(store.tournamentMatches(id)).toHaveLength(1);
       expect(saved).toMatchObject({ osuMatchId: 7, importedAt: 200 });
       expect(saved!.scores.map(({ accuracy }) => accuracy)).toEqual([96]);
+    });
+
+    it("keeps the players said in or out by hand, and forgets them on demand", () => {
+      const id = store.createTournament("BTT10", "taiko", 1);
+      store.setPlayerStatus(id, 7, true);
+      store.setPlayerStatus(id, 8, false);
+      store.setPlayerStatus(id, 7, false);
+      store.setPlayerStatus(id, 8, null);
+      expect(store.playerStatuses(id)).toEqual([{ userId: 7, eliminated: false }]);
+      store.deleteTournament(id);
+      expect(store.playerStatuses(id)).toEqual([]);
     });
 
     it("removes the pools and matches with the tournament", () => {
