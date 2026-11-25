@@ -1,10 +1,22 @@
 import { BrowserWindow } from 'electron'
 import { analyzeMap, analyzeMods } from '@osu-tracker/pp'
 import { clockRate } from '@osu-tracker/recommender'
-import { parseMatchId, parsePool } from '@osu-tracker/stats'
+import {
+  bracketEliminations,
+  matchRounds,
+  parseChallonge,
+  parseChallongeBracket,
+  parseMatchId,
+  parsePool,
+  tournamentPlacement,
+  type BracketStatus,
+  type Placement
+} from '@osu-tracker/stats'
 import { OsuApiError } from '@osu-tracker/osu-api'
 import type {
   PoolMapInput,
+  PlayerStatus,
+  PoolUpdate,
   RecentPlay,
   Tournament,
   TournamentMatch,
@@ -22,7 +34,14 @@ export type TournamentData = {
   plays: RecentPlay[]
   /** The connected player, to find their scores among those of a match. */
   me: { userId: number; username: string } | null
+  /** What the Challonge bracket says, when one is linked and could be read. */
+  bracket: BracketStatus | null
+  /** The players said in or out by hand, above the bracket and the matches. */
+  manual: PlayerStatus[]
 }
+
+/** A tournament of the list, with where the connected player stands in it. */
+export type TournamentSummary = Tournament & { placement: Placement }
 
 export type PoolImport = { poolId: string; errors: string[] }
 
@@ -50,8 +69,30 @@ export function setupTournaments(trackerStore: TrackerStore, playing: () => bool
   isPlaying = playing
 }
 
-export function getTournaments(): Tournament[] {
-  return store.tournaments()
+export async function getTournaments(): Promise<TournamentSummary[]> {
+  const userId = getAccountStatus().user?.id ?? null
+  return Promise.all(
+    store.tournaments().map(async (tournament) => {
+      if (userId === null) return { ...tournament, placement: { kind: 'unknown' } }
+      const pools = store.tournamentPools(tournament.id)
+      // As the tournament page reads them: warm-ups out of the pools left out.
+      const matches = matchRounds(store.tournamentMatches(tournament.id), pools).flatMap(
+        (round) => round.matches
+      )
+      const bracket = await bracketStatus(tournament)
+      return {
+        ...tournament,
+        placement: tournamentPlacement(
+          matches,
+          pools,
+          tournament,
+          userId,
+          bracket,
+          store.playerStatuses(tournament.id)
+        )
+      }
+    })
+  )
 }
 
 export function createTournament(name: string, mode: string): string {
@@ -66,7 +107,7 @@ export function deleteTournament(tournamentId: string): void {
   store.deleteTournament(tournamentId)
 }
 
-export function getTournament(tournamentId: string): TournamentData | null {
+export async function getTournament(tournamentId: string): Promise<TournamentData | null> {
   const tournament = store.tournaments().find(({ id }) => id === tournamentId)
   if (!tournament) return null
 
@@ -80,7 +121,9 @@ export function getTournament(tournamentId: string): TournamentData | null {
     pools,
     matches: store.tournamentMatches(tournamentId),
     plays: store.playsOnMaps(beatmapIds, tournament.mode),
-    me: user ? { userId: user.id, username: user.name } : null
+    me: user ? { userId: user.id, username: user.name } : null,
+    bracket: await bracketStatus(tournament),
+    manual: store.playerStatuses(tournamentId)
   }
 }
 
@@ -161,6 +204,10 @@ export async function addPool(
   return { poolId: store.createPool(tournamentId, name, maps, Date.now()), errors: failures }
 }
 
+export function updatePool(poolId: string, changes: PoolUpdate): void {
+  store.updatePool(poolId, changes)
+}
+
 export function deletePool(poolId: string): void {
   store.deletePool(poolId)
 }
@@ -215,6 +262,68 @@ export async function importMatch(tournamentId: string, link: string): Promise<M
     Date.now()
   )
   return { name: match.name, games: games.length, warmups: match.games.length - games.length }
+}
+
+// A bracket is read again after this delay, or when the player asks for it.
+const BRACKET_FRESH_MS = 10 * 60 * 1000
+const brackets = new Map<string, { svg: string; at: number }>()
+
+/**
+ * The bracket as Challonge draws it: an SVG image, read here, as the page of the app cannot
+ * reach other sites. Its scripts never run: the page shows it as an image.
+ */
+async function bracketSvg(bracket: string, fresh: boolean): Promise<string> {
+  const known = brackets.get(bracket)
+  if (known && !fresh && Date.now() - known.at < BRACKET_FRESH_MS) return known.svg
+  const response = await fetch(`https://${bracket}.svg`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (osu-tracker)' }
+  })
+  if (response.status === 404) {
+    throw new Error('Ce bracket n’existe pas sur Challonge : vérifie le lien.')
+  }
+  if (!response.ok) throw new Error(`Challonge a répondu ${response.status}.`)
+  if (!response.headers.get('content-type')?.includes('svg')) {
+    throw new Error('Challonge n’a pas renvoyé de bracket : il est peut-être privé.')
+  }
+  const svg = await response.text()
+  brackets.set(bracket, { svg, at: Date.now() })
+  return svg
+}
+
+/** Only the brackets the parser accepts: never any address. */
+function bracketOf(tournament: Tournament | undefined): string | null {
+  const bracket = tournament?.challonge ?? null
+  return bracket !== null && parseChallonge(bracket) === bracket ? bracket : null
+}
+
+export async function fetchChallongeBracket(
+  tournamentId: string,
+  fresh = false
+): Promise<string | null> {
+  const bracket = bracketOf(store.tournaments().find(({ id }) => id === tournamentId))
+  return bracket === null ? null : bracketSvg(bracket, fresh)
+}
+
+/** Who the bracket has knocked out; null without a bracket, or when it cannot be read. */
+async function bracketStatus(tournament: Tournament): Promise<BracketStatus | null> {
+  const bracket = bracketOf(tournament)
+  if (bracket === null) return null
+  try {
+    const matches = parseChallongeBracket(await bracketSvg(bracket, false))
+    return matches.length > 0 ? bracketEliminations(matches, tournament.loserBracket) : null
+  } catch (error) {
+    console.error('Bracket Challonge illisible :', error)
+    return null
+  }
+}
+
+/** Null forgets the choice by hand: the bracket or the matches decide again. */
+export function setPlayerStatus(
+  tournamentId: string,
+  userId: number,
+  eliminated: boolean | null
+): void {
+  store.setPlayerStatus(tournamentId, userId, eliminated)
 }
 
 export function deleteMatch(matchId: string): void {

@@ -9,8 +9,8 @@ import type {
   Playlist,
   PlaylistMap,
   PlaylistMapInput,
-  Tournament,
   TournamentUpdate,
+  PoolUpdate,
   RecentPlay,
   SessionSummary,
   TopScoreRow
@@ -21,7 +21,13 @@ import type { AccountStatus } from '../main/account'
 import type { FarmingStatus, FarmSuggestion, ImportedMap } from '../main/farming'
 import type { TrackingStatus } from '../main/tracking'
 import type { UpdateState } from '../main/updates'
-import type { ImportProgress, MatchImport, PoolImport, TournamentData } from '../main/tournaments'
+import type {
+  ImportProgress,
+  MatchImport,
+  PoolImport,
+  TournamentData,
+  TournamentSummary
+} from '../main/tournaments'
 
 // Custom APIs for renderer
 const api = {
@@ -89,7 +95,7 @@ const api = {
   getSessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke('tracking:get-sessions'),
   exportSession: (sessionId: string): Promise<string | null> =>
     ipcRenderer.invoke('tracking:export-session', sessionId),
-  getTournaments: (): Promise<Tournament[]> => ipcRenderer.invoke('tournaments:get-all'),
+  getTournaments: (): Promise<TournamentSummary[]> => ipcRenderer.invoke('tournaments:get-all'),
   getTournament: (tournamentId: string): Promise<TournamentData | null> =>
     ipcRenderer.invoke('tournaments:get', tournamentId),
   createTournament: (name: string, mode: string): Promise<string> =>
@@ -100,6 +106,16 @@ const api = {
     ipcRenderer.invoke('tournaments:delete', tournamentId),
   addPool: (tournamentId: string, name: string, text: string): Promise<PoolImport> =>
     ipcRenderer.invoke('tournaments:add-pool', tournamentId, name, text),
+  updatePool: (poolId: string, changes: PoolUpdate): Promise<void> =>
+    ipcRenderer.invoke('tournaments:update-pool', poolId, changes),
+  getChallongeBracket: (tournamentId: string, fresh = false): Promise<string | null> =>
+    ipcRenderer.invoke('tournaments:challonge', tournamentId, fresh),
+  setPlayerStatus: (
+    tournamentId: string,
+    userId: number,
+    eliminated: boolean | null
+  ): Promise<void> =>
+    ipcRenderer.invoke('tournaments:player-status', tournamentId, userId, eliminated),
   deletePool: (poolId: string): Promise<void> =>
     ipcRenderer.invoke('tournaments:delete-pool', poolId),
   importMatch: (tournamentId: string, link: string): Promise<MatchImport> =>

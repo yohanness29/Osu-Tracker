@@ -22,3 +22,11 @@ export function matchesSearch(map: Searchable, search: string): boolean {
     .split(/\s+/)
     .every((word) => haystack.includes(word))
 }
+
+/** The same search on any text: every word found in it, accents and case left aside. */
+export function textMatches(text: string, search: string): boolean {
+  const haystack = normalize(text)
+  return normalize(search)
+    .split(/\s+/)
+    .every((word) => haystack.includes(word))
+}

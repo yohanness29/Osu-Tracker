@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import type { Credentials } from '@osu-tracker/osu-api'
 import type { SearchFilters } from '@osu-tracker/recommender'
-import type { NewGoal, PlaylistMapInput, TournamentUpdate } from '@osu-tracker/storage'
+import type { NewGoal, PlaylistMapInput, PoolUpdate, TournamentUpdate } from '@osu-tracker/storage'
 import {
   getAccountStatus,
   getTopScores,
@@ -27,6 +27,9 @@ import {
   createTournament,
   deleteMatch,
   deletePool,
+  setPlayerStatus,
+  fetchChallongeBracket,
+  updatePool,
   deleteTournament,
   getTournament,
   getTournaments,
@@ -173,6 +176,17 @@ app.whenReady().then(() => {
     addPool(tournamentId, name, text)
   )
   ipcMain.handle('tournaments:delete-pool', (_, poolId: string) => deletePool(poolId))
+  ipcMain.handle(
+    'tournaments:player-status',
+    (_, tournamentId: string, userId: number, eliminated: boolean | null) =>
+      setPlayerStatus(tournamentId, userId, eliminated)
+  )
+  ipcMain.handle('tournaments:challonge', (_, tournamentId: string, fresh: boolean) =>
+    fetchChallongeBracket(tournamentId, fresh === true)
+  )
+  ipcMain.handle('tournaments:update-pool', (_, poolId: string, changes: PoolUpdate) =>
+    updatePool(poolId, changes)
+  )
   ipcMain.handle('tournaments:import-match', (_, tournamentId: string, link: string) =>
     importMatch(tournamentId, link)
   )

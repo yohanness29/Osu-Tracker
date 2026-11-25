@@ -44,20 +44,20 @@ export function comparisonWith(
 
 /** Colors of the slots, as tournament sites usually show them. */
 export const CATEGORY_COLORS: Record<ModCategory, string> = {
-  NM: '#a8a3b8',
-  HD: '#ffd166',
-  HR: '#ff6b6b',
-  DT: '#b388ff',
-  HT: '#7cc8ff',
-  EZ: '#5fd38d',
-  FL: '#e2e2e2',
-  FM: '#5fd38d',
-  TB: '#7cc8ff'
+  NM: 'var(--color-mod-nm)',
+  HD: 'var(--color-mod-hd)',
+  HR: 'var(--color-mod-hr)',
+  DT: 'var(--color-mod-dt)',
+  HT: 'var(--color-mod-ht)',
+  EZ: 'var(--color-mod-ez)',
+  FL: 'var(--color-mod-fl)',
+  FM: 'var(--color-mod-ez)',
+  TB: 'var(--color-mod-ht)'
 }
 
 export const READINESS: Record<Readiness, { label: string; color: string }> = {
   ready: { label: 'Prête', color: 'var(--color-passed)' },
-  fragile: { label: 'Fragile', color: '#ffd166' },
+  fragile: { label: 'Fragile', color: 'var(--color-warning)' },
   weak: { label: 'À travailler', color: 'var(--color-failed)' },
   untested: { label: 'Pas jouée', color: 'var(--color-ink-faint)' }
 }
@@ -83,6 +83,11 @@ export function opponentChoices(
   return standings.filter(
     ({ userId, eliminated }) => userId !== meId && (!eliminated || userId === chosenId)
   )
+}
+
+/** FT5 (BO9): matches are won by the first to (best of + 1) / 2 maps. */
+export function formatLabel(bestOf: number): string {
+  return `FT${(bestOf + 1) / 2} (BO${bestOf})`
 }
 
 export function playerLabel(player: PlayerStanding): string {

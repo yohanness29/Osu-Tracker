@@ -158,7 +158,7 @@ function MatchCard(props: {
         {review && played && (
           <span
             className={`shrink-0 rounded-lg px-3 py-1 text-sm font-bold ${
-              review.wins > review.losses ? 'bg-passed text-page' : 'bg-panel-raised'
+              review.wins > review.losses ? 'bg-passed text-on-accent' : 'bg-panel-raised'
             }`}
           >
             {review.wins} – {review.losses} contre {review.opponent.username}
@@ -175,12 +175,15 @@ function MatchCard(props: {
             </span>
           </span>
         )}
-        <button
-          onClick={props.onDelete}
-          className="shrink-0 text-xs text-ink-soft hover:text-failed"
-        >
-          Retirer
-        </button>
+        {/* Only on an opened match: fewer buttons in the list. */}
+        {open && (
+          <button
+            onClick={props.onDelete}
+            className="shrink-0 text-xs text-ink-soft hover:text-failed"
+          >
+            Retirer
+          </button>
+        )}
       </div>
 
       {open && duel && review && (
@@ -286,7 +289,8 @@ function RoundSection(props: {
   )
 }
 
-export function MatchesTab(props: {
+/** The matches played: imported by their link, by round, newest first. */
+export function ResultsTab(props: {
   data: TournamentData
   rounds: MatchRound[]
   /** Every player met, by seed. */
@@ -333,35 +337,25 @@ export function MatchesTab(props: {
 
   return (
     <div>
-      <form onSubmit={submit} className="flex gap-2">
-        <input
-          value={link}
-          onChange={(event) => setLink(event.target.value)}
-          placeholder="Lien du match : https://osu.ppy.sh/community/matches/…"
-          aria-label="Lien du match"
-          className="min-w-0 flex-1 rounded-lg bg-panel px-4 py-2 text-sm"
-        />
-        <button
-          type="submit"
-          disabled={busy || !link.trim()}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-page disabled:opacity-60"
-        >
-          {busy ? 'Import…' : 'Importer'}
-        </button>
-      </form>
-      <p className="mt-2 text-xs text-ink-soft">
-        Tes qualifs, celles de tes adversaires et vos matchs. Chaque match est rangé dans le round
-        de son pool, et les maps d’échauffement jouées hors du pool sont ignorées.
-      </p>
-      {message && <p className="mt-2 text-sm">{message}</p>}
-      {!data.me && (
-        <p className="mt-3 text-sm">
-          Relie ton compte osu! dans le profil pour que l’app retrouve tes scores dans les matchs.
-        </p>
-      )}
-
-      {players.length > 0 && (
-        <div className="mt-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <form onSubmit={submit} className="flex min-w-80 flex-1 gap-2">
+          <input
+            value={link}
+            onChange={(event) => setLink(event.target.value)}
+            placeholder="Lien d’un match à importer : https://osu.ppy.sh/community/matches/…"
+            aria-label="Lien du match"
+            title="Les qualifs, tes matchs et ceux des autres joueurs. Les maps d’échauffement sont ignorées."
+            className="min-w-0 flex-1 rounded-lg bg-panel px-4 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={busy || !link.trim()}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-60"
+          >
+            {busy ? 'Import…' : 'Importer'}
+          </button>
+        </form>
+        {players.length > 0 && (
           <Dropdown
             single
             label="Joueur"
@@ -376,7 +370,19 @@ export function MatchesTab(props: {
                   : playerLabel(player)
             }))}
           />
-        </div>
+        )}
+      </div>
+      {message && <p className="mt-2 text-sm">{message}</p>}
+      {!data.me && (
+        <p className="mt-3 text-sm">
+          Relie ton compte osu! dans le profil pour que l’app retrouve tes scores dans les matchs.
+        </p>
+      )}
+      {data.matches.length === 0 && (
+        <p className="mt-5 text-ink-soft">
+          Aucun match importé. Colle le lien d’un match pour l’ajouter : les qualifs, tes matchs et
+          ceux des autres joueurs. Chacun est rangé dans le round de son pool.
+        </p>
       )}
 
       {shown.map((round) => (

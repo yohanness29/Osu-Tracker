@@ -77,7 +77,7 @@ function AddPoolForm(props: {
         <button
           type="submit"
           disabled={busy || !text.trim()}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-page disabled:opacity-60"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-60"
         >
           {busy
             ? progress
@@ -147,26 +147,27 @@ function SlotRow({ slot, mode }: { slot: TrainedSlot; mode: string }): React.JSX
           <MapStyle style={map.style} tags={map.tags} />
           <CopyMapId beatmapId={map.beatmapId} />
         </div>
-        {training.readiness !== 'ready' && (
-          <div className="mt-0.5 truncate text-xs" style={{ color: readiness.color }}>
-            {training.reasons.join(' · ')}
-          </div>
-        )}
       </div>
-      <div className="w-56 shrink-0 text-right text-xs tabular-nums">
+      <div
+        className="w-44 shrink-0 text-right text-xs tabular-nums"
+        title={[
+          ...training.reasons,
+          training.recentAccuracy !== null
+            ? `Récemment : ${percent(training.recentAccuracy)} · ${training.recentMisses?.toFixed(1)} miss${
+                training.unstableRate ? ` · UR ${Math.round(training.unstableRate)}` : ''
+              }`
+            : ''
+        ]
+          .filter(Boolean)
+          .join('\n')}
+      >
         <div className="flex items-center justify-end gap-2">
           <span className="size-2 rounded-full" style={{ backgroundColor: readiness.color }} />
           <span className="font-semibold" style={{ color: readiness.color }}>
             {readiness.label}
           </span>
         </div>
-        {training.recentAccuracy !== null ? (
-          <div className="mt-0.5 text-ink-soft">
-            {percent(training.recentAccuracy)} · {training.recentMisses?.toFixed(1)} miss
-            {training.unstableRate ? ` · UR ${Math.round(training.unstableRate)}` : ''}
-          </div>
-        ) : null}
-        <div className="mt-0.5 text-ink-faint" title={training.reasons.join('\n')}>
+        <div className="mt-0.5 text-ink-soft">
           {training.best
             ? `Meilleure : ${percent(training.best.accuracy)} · ${training.best.misses} miss`
             : `${training.attempts} essai${training.attempts > 1 ? 's' : ''}`}
@@ -198,7 +199,7 @@ export function PoolsTab(props: { data: TournamentData; onChange: () => void }):
             onClick={() => setSelectedId(entry.id)}
             className={`rounded-lg px-3 py-1.5 text-sm ${
               entry.id === pool?.id
-                ? 'bg-accent font-semibold text-page'
+                ? 'bg-accent font-semibold text-on-accent'
                 : 'bg-panel hover:bg-panel-raised'
             }`}
           >
@@ -231,8 +232,7 @@ export function PoolsTab(props: { data: TournamentData; onChange: () => void }):
               <span style={{ color: READINESS.ready.color }}>{counts.ready} prêtes</span> ·{' '}
               <span style={{ color: READINESS.fragile.color }}>{counts.fragile} fragiles</span> ·{' '}
               <span style={{ color: READINESS.weak.color }}>{counts.weak} à travailler</span> ·{' '}
-              {counts.untested} pas jouées. Tes parties sur ces maps sont rattachées toutes seules à
-              leur slot, avec ses mods.
+              {counts.untested} pas jouées
             </p>
             <button
               onClick={() => window.api.deletePool(pool.id).then(onChange).catch(console.error)}
